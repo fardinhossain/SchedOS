@@ -14,6 +14,7 @@ import {
   BookOpen,
   ChevronDown,
   CircuitBoard,
+  Code2,
   Cpu,
   GitCompareArrows,
   Info,
@@ -38,8 +39,9 @@ const DOORS: { page: PageId; code: string; label: string; icon: React.ReactNode 
   { page: 'visualizer', code: '01', label: 'Visualizer', icon: <CircuitBoard className="h-4 w-4" /> },
   { page: 'compare', code: '02', label: 'Compare', icon: <GitCompareArrows className="h-4 w-4" /> },
   { page: 'algorithms', code: '03', label: 'Algorithms', icon: <ListTree className="h-4 w-4" /> },
-  { page: 'learn', code: '04', label: 'Learn', icon: <BookOpen className="h-4 w-4" /> },
-  { page: 'about', code: '05', label: 'About', icon: <Info className="h-4 w-4" /> },
+  { page: 'code', code: '04', label: 'Code Examples', icon: <Code2 className="h-4 w-4" /> },
+  { page: 'learn', code: '05', label: 'Learn', icon: <BookOpen className="h-4 w-4" /> },
+  { page: 'about', code: '06', label: 'About', icon: <Info className="h-4 w-4" /> },
 ];
 
 export function Home({ onNavigate }: HomeProps) {
@@ -271,6 +273,12 @@ export function Home({ onNavigate }: HomeProps) {
             },
             {
               step: '04',
+              title: 'Study the code',
+              body: 'Read exam-ready, memorable implementations taking user input in C, Python, and TS.',
+              page: 'code' as PageId,
+            },
+            {
+              step: '05',
               title: 'Test yourself',
               body: 'Use Learn mode to predict the scheduler’s next choice before it happens.',
               page: 'learn' as PageId,

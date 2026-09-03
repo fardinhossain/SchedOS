@@ -4,7 +4,7 @@
  * tie-breaking policy, a Try button, and its source code in three languages.
  */
 import { useState } from 'react';
-import { ArrowRight, Check, ChevronDown, Lock, Minus, Zap } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, Code2, Lock, Minus, Zap } from 'lucide-react';
 import type { AlgorithmId } from '../types/scheduling';
 import { ALGORITHMS, NON_PREEMPTIVE, PREEMPTIVE } from '../algorithms';
 import type { AlgorithmMeta } from '../types/scheduling';
@@ -14,10 +14,11 @@ import { CodeViewer } from '../components/CodeViewer';
 
 interface AlgorithmsProps {
   onTry: (id: AlgorithmId) => void;
+  onViewCode?: (id: AlgorithmId) => void;
   selected: AlgorithmId;
 }
 
-export function Algorithms({ onTry, selected }: AlgorithmsProps) {
+export function Algorithms({ onTry, onViewCode, selected }: AlgorithmsProps) {
   const [expanded, setExpanded] = useState<AlgorithmId | null>(selected);
 
   return (
@@ -63,6 +64,7 @@ export function Algorithms({ onTry, selected }: AlgorithmsProps) {
             expanded={expanded === meta.id}
             onExpand={() => setExpanded(expanded === meta.id ? null : meta.id)}
             onTry={() => onTry(meta.id)}
+            onViewCode={onViewCode ? () => onViewCode(meta.id) : undefined}
           />
         ))}
       </div>
@@ -77,6 +79,7 @@ function AlgorithmCard({
   expanded,
   onExpand,
   onTry,
+  onViewCode,
 }: {
   meta: AlgorithmMeta;
   index: number;
@@ -84,6 +87,7 @@ function AlgorithmCard({
   expanded: boolean;
   onExpand: () => void;
   onTry: () => void;
+  onViewCode?: () => void;
 }) {
   const preemptive = meta.category === 'preemptive';
 
@@ -129,6 +133,16 @@ function AlgorithmCard({
         </span>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          {onViewCode && (
+            <button
+              type="button"
+              onClick={onViewCode}
+              className="flex items-center gap-1.5 border border-rule bg-bone px-2.5 py-1.5 text-[11px] font-semibold text-text transition-colors hover:border-ink hover:bg-bone-3"
+            >
+              <Code2 aria-hidden="true" className="h-3 w-3 text-crt-dim" />
+              View Code
+            </button>
+          )}
           <button
             type="button"
             onClick={onTry}

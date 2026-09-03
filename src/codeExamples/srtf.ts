@@ -1,495 +1,242 @@
 /**
- * Educational reference implementations of SRTF.
- * Same logic in every language; only the syntax differs.
- * These are displayed for learning only — never executed by the simulator.
+ * Educational reference implementations of SRTF (Shortest Remaining Time First - Preemptive SJF).
+ * Rule: At every tick, execute the available process with the shortest remaining burst time.
  */
 import type { SupportedLanguage } from '../types/scheduling';
 
 export const srtfCode: Record<SupportedLanguage, string> = {
   c: `#include <stdio.h>
-#include <string.h>
+#include <stdbool.h>
 
-/* Shortest Remaining Time First (SRTF) — preemptive.
-   Rule: at every clock tick, run the arrived process with the LEAST
-   remaining time. Preempt the running process the instant a shorter job arrives.
-
-   Tie-break (applied in this order):
-     1. Smallest remaining time.
-     2. If equal: earlier arrival time.
-     3. If still equal: lower process id (lexicographic).
-   On a tie with the currently running process, NO preemption occurs;
-   the running process keeps the CPU. */
-
-#define MAXN   64
-#define MAXSEG 4096
+/* Shortest Remaining Time First (SRTF) — Preemptive SJF
+   Rule: At each time tick, pick the available process with the smallest remaining time. */
 
 typedef struct {
-    char id[8];
-    int  arrival;
-    int  burst;
-    int  remaining;
-    int  first_start; /* -1 until first scheduled */
-    int  completion;
-    int  turnaround;
-    int  waiting;
-    int  response;
+    char id[10];
+    int at, bt, remaining_bt;
+    int ct, tat, wt, rt;
+    int first_start;
 } Process;
 
-/* One contiguous Gantt block: process ran from start to end. */
-typedef struct { char id[8]; int start; int end; } Segment;
+int main() {
+    int n;
+    printf("Enter number of processes: ");
+    if (scanf("%d", &n) != 1 || n <= 0) return 0;
 
-/* Return the index of the best process to run at time 'now'.
-   'cur' is the index of the currently running process (-1 if idle).
-   Returns -1 when no process is available. */
-int pick_srtf(Process p[], int n, int now, int cur) {
-    int best = -1;
+    Process p[50];
     for (int i = 0; i < n; i++) {
-        if (p[i].arrival > now || p[i].remaining <= 0) continue;
-        if (best == -1) { best = i; continue; }
-        if (p[i].remaining > p[best].remaining) continue;
-        if (p[i].remaining < p[best].remaining) { best = i; continue; }
-        /* Equal remaining: the running process keeps the CPU (no preemption). */
-        if (best == cur) continue;
-        if (i    == cur) { best = i; continue; }
-        /* Neither is running: earlier arrival wins. */
-        if (p[i].arrival > p[best].arrival) continue;
-        if (p[i].arrival < p[best].arrival) { best = i; continue; }
-        /* Still tied: lower id (lexicographic) wins. */
-        if (strcmp(p[i].id, p[best].id) < 0) best = i;
-    }
-    return best;
-}
-
-/* Run SRTF tick-by-tick, fill segs[] with the Gantt timeline (*nseg entries).
-   Adjacent ticks of the SAME process are merged into one Segment — but a
-   process that was preempted and later resumed still appears as multiple
-   NON-ADJACENT blocks, which is what makes SRTF Gantt charts look busy. */
-void srtf(Process p[], int n, Segment segs[], int *nseg) {
-    for (int i = 0; i < n; i++) {
-        p[i].remaining   = p[i].burst;
+        printf("Process %d (ID Arrival Burst): ", i + 1);
+        scanf("%s %d %d", p[i].id, &p[i].at, &p[i].bt);
+        p[i].remaining_bt = p[i].bt;
         p[i].first_start = -1;
     }
-    int clock = 0, done = 0, cur = -1;
-    *nseg = 0;
 
-    while (done < n) {
-        int next = pick_srtf(p, n, clock, cur);
+    int current_time = 0, completed = 0;
+    float total_tat = 0, total_wt = 0;
 
-        if (next == -1) {
-            /* CPU idle — fast-forward to the next arrival. */
-            int earliest = -1;
-            for (int i = 0; i < n; i++) {
-                if (p[i].remaining > 0 &&
-                    (earliest == -1 || p[i].arrival < earliest))
-                    earliest = p[i].arrival;
+    while (completed < n) {
+        int idx = -1;
+        int min_rem = 1e9;
+
+        /* Find process with minimum remaining burst time among arrived */
+        for (int i = 0; i < n; i++) {
+            if (p[i].at <= current_time && p[i].remaining_bt > 0) {
+                if (p[i].remaining_bt < min_rem) {
+                    min_rem = p[i].remaining_bt;
+                    idx = i;
+                } else if (p[i].remaining_bt == min_rem) {
+                    if (p[i].at < p[idx].at) idx = i; /* Tie: earlier arrival */
+                }
             }
-            if (earliest == -1) break;
-            /* Extend an existing IDLE segment or open a new one. */
-            if (*nseg > 0 && strcmp(segs[*nseg - 1].id, "IDLE") == 0)
-                segs[*nseg - 1].end = earliest;
-            else {
-                strcpy(segs[*nseg].id, "IDLE");
-                segs[*nseg].start = clock;
-                segs[*nseg].end   = earliest;
-                (*nseg)++;
-            }
-            clock = earliest;
-            cur   = -1;
+        }
+
+        if (idx == -1) {
+            current_time++; /* CPU idle */
             continue;
         }
 
-        if (p[next].first_start == -1) p[next].first_start = clock;
-
-        /* Extend the last segment when the same process continues running;
-           otherwise open a new segment.  This adjacency merge is why a single
-           process can appear as several non-adjacent blocks: it ran, was
-           preempted, then resumed in a new segment elsewhere on the chart. */
-        if (*nseg > 0 && strcmp(segs[*nseg - 1].id, p[next].id) == 0)
-            segs[*nseg - 1].end = clock + 1;
-        else {
-            strcpy(segs[*nseg].id, p[next].id);
-            segs[*nseg].start = clock;
-            segs[*nseg].end   = clock + 1;
-            (*nseg)++;
+        /* Record response time at first dispatch */
+        if (p[idx].first_start == -1) {
+            p[idx].first_start = current_time;
+            p[idx].rt = current_time - p[idx].at;
         }
 
-        cur = next;
-        p[cur].remaining--;
-        clock++;
+        /* Run for 1 unit of time */
+        p[idx].remaining_bt--;
+        current_time++;
 
-        if (p[cur].remaining == 0) {
-            p[cur].completion = clock;
-            done++;
-            cur = -1;
+        /* Check if process finished */
+        if (p[idx].remaining_bt == 0) {
+            p[idx].ct = current_time;
+            p[idx].tat = p[idx].ct - p[idx].at;
+            p[idx].wt = p[idx].tat - p[idx].bt;
+
+            completed++;
+            total_tat += p[idx].tat;
+            total_wt += p[idx].wt;
         }
     }
 
-    /* Derive all metrics from the completed simulation. */
+    /* Print Output Table */
+    printf("\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT\\n");
     for (int i = 0; i < n; i++) {
-        p[i].turnaround = p[i].completion - p[i].arrival;
-        p[i].waiting    = p[i].turnaround - p[i].burst;
-        p[i].response   = p[i].first_start - p[i].arrival;
+        printf("%s\\t%d\\t%d\\t%d\\t%d\\t%d\\t%d\\n",
+               p[i].id, p[i].at, p[i].bt, p[i].ct, p[i].tat, p[i].wt, p[i].rt);
     }
-}
-
-int main(void) {
-    int n;
-    printf("Number of processes: ");
-    if (scanf("%d", &n) != 1 || n <= 0) return 1;
-
-    Process p[MAXN];
-    for (int i = 0; i < n; i++) {
-        printf("PID, arrival, burst for process %d: ", i + 1);
-        scanf("%7s %d %d", p[i].id, &p[i].arrival, &p[i].burst);
-    }
-
-    Segment segs[MAXSEG];
-    int nseg = 0;
-    srtf(p, n, segs, &nseg);
-
-    int first_arrival = p[0].arrival;
-    for (int i = 1; i < n; i++)
-        if (p[i].arrival < first_arrival) first_arrival = p[i].arrival;
-
-    double total_wt = 0, total_tat = 0, total_rt = 0;
-    int busy = 0, last = 0;
-
-    printf("\\nPID  AT  BT  CT  TAT  WT  RT\\n");
-    for (int i = 0; i < n; i++) {
-        printf("%-4s %3d %3d %3d %4d %3d %3d\\n",
-               p[i].id, p[i].arrival, p[i].burst,
-               p[i].completion, p[i].turnaround,
-               p[i].waiting, p[i].response);
-        total_wt  += p[i].waiting;
-        total_tat += p[i].turnaround;
-        total_rt  += p[i].response;
-        busy      += p[i].burst;
-        if (p[i].completion > last) last = p[i].completion;
-    }
-
-    int total_time = last - first_arrival;
-    printf("\\nGantt: ");
-    for (int i = 0; i < nseg; i++) {
-        if (i > 0) printf(" | ");
-        printf("%s %d-%d", segs[i].id, segs[i].start, segs[i].end);
-    }
-    printf("\\n\\nAverage WT  : %.2f\\n", total_wt  / n);
-    printf("Average TAT : %.2f\\n", total_tat / n);
-    printf("Average RT  : %.2f\\n", total_rt  / n);
-    printf("CPU busy    : %d\\n", busy);
-    printf("CPU idle    : %d\\n", total_time - busy);
-    printf("CPU util    : %.2f%%\\n", 100.0 * busy / total_time);
+    printf("\\nAverage Turnaround Time: %.2f", total_tat / n);
+    printf("\\nAverage Waiting Time   : %.2f\\n", total_wt / n);
     return 0;
 }`,
 
-  python: `"""Shortest Remaining Time First (SRTF) — preemptive.
-Rule: at every clock tick, run the arrived process with the LEAST remaining time.
-The CPU is preempted the instant a shorter job arrives.
+  python: `\"\"\"Shortest Remaining Time First (SRTF) — Preemptive SJF
+Rule: At each time tick, pick the available process with the shortest remaining time.
+\"\"\"
 
-Tie-break (applied in order):
-  1. Smallest remaining time.
-  2. If equal: earlier arrival time.
-  3. If still equal: lower pid (lexicographic).
-On a tie with the currently running process, no preemption occurs.
-"""
-from dataclasses import dataclass, field
+# 1. Take interactive input from user
+n = int(input("Enter number of processes: "))
+processes = []
 
+for i in range(n):
+    line = input(f"Process {i + 1} (ID Arrival Burst): ").split()
+    bt = int(line[2])
+    processes.append({
+        'id': line[0],
+        'at': int(line[1]),
+        'bt': bt,
+        'remaining_bt': bt,
+        'first_start': -1,
+        'rt': 0, 'ct': 0, 'tat': 0, 'wt': 0
+    })
 
-@dataclass
-class Process:
-    pid: str
-    arrival: int
-    burst: int
-    remaining: int = field(default=0)
-    first_start: int = field(default=-1)
-    completion: int = field(default=0)
-    turnaround: int = field(default=0)
-    waiting: int = field(default=0)
-    response: int = field(default=0)
+# 2. Preemptive simulation loop (tick-by-tick)
+current_time = 0
+completed = 0
+total_tat = 0
+total_wt = 0
 
+while completed < n:
+    ready = [p for p in processes if p['at'] <= current_time and p['remaining_bt'] > 0]
 
-def pick_srtf(
-    processes: list[Process], now: int, cur_pid: str | None
-) -> Process | None:
-    """Return the process to run at time 'now', or None if the CPU must idle.
-    cur_pid is the pid of the running process (None when idle).
-    On a remaining-time tie, the running process keeps the CPU."""
-    candidates = [p for p in processes if p.arrival <= now and p.remaining > 0]
-    if not candidates:
-        return None
+    if not ready:
+        current_time += 1  # CPU idle
+        continue
 
-    def key(p: Process) -> tuple:
-        not_running = 0 if p.pid == cur_pid else 1   # running process beats all ties
-        return (p.remaining, not_running, p.arrival, p.pid)
+    # Pick process with smallest remaining burst
+    chosen = min(ready, key=lambda p: (p['remaining_bt'], p['at']))
 
-    return min(candidates, key=key)
+    if chosen['first_start'] == -1:
+        chosen['first_start'] = current_time
+        chosen['rt'] = current_time - chosen['at']
 
+    chosen['remaining_bt'] -= 1
+    current_time += 1
 
-def srtf(processes: list[Process]) -> list[tuple[str, int, int]]:
-    """Simulates SRTF tick-by-tick, mutates processes in place, and returns
-    the Gantt timeline as a list of (pid, start, end) tuples.
+    if chosen['remaining_bt'] == 0:
+        chosen['ct'] = current_time
+        chosen['tat'] = chosen['ct'] - chosen['at']
+        chosen['wt'] = chosen['tat'] - chosen['bt']
 
-    Adjacent ticks of the same process are merged into one tuple — a process
-    that was preempted and later resumed still appears as multiple NON-ADJACENT
-    tuples, which is what makes the SRTF Gantt chart look busy."""
-    for p in processes:
-        p.remaining   = p.burst
-        p.first_start = -1
+        completed += 1
+        total_tat += chosen['tat']
+        total_wt += chosen['wt']
 
-    timeline: list[tuple[str, int, int]] = []
-    clock: int = 0
-    done: int = 0
-    n: int = len(processes)
-    cur_pid: str | None = None
+# 3. Print Results
+print("\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT")
+for p in processes:
+    print(f"{p['id']}\\t{p['at']}\\t{p['bt']}\\t{p['ct']}\\t{p['tat']}\\t{p['wt']}\\t{p['rt']}")
 
-    while done < n:
-        chosen = pick_srtf(processes, clock, cur_pid)
+print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
+print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-        if chosen is None:
-            # CPU idle: fast-forward to the next arrival.
-            next_arr = min(p.arrival for p in processes if p.remaining > 0)
-            if timeline and timeline[-1][0] == "IDLE":
-                timeline[-1] = ("IDLE", timeline[-1][1], next_arr)
-            else:
-                timeline.append(("IDLE", clock, next_arr))
-            clock   = next_arr
-            cur_pid = None
-            continue
+  typescript: `import * as readline from 'readline';
 
-        if chosen.first_start == -1:
-            chosen.first_start = clock
-
-        # Extend the last segment if the same process continues; else open a new one.
-        if timeline and timeline[-1][0] == chosen.pid:
-            timeline[-1] = (chosen.pid, timeline[-1][1], clock + 1)
-        else:
-            timeline.append((chosen.pid, clock, clock + 1))
-
-        cur_pid = chosen.pid
-        chosen.remaining -= 1
-        clock += 1
-
-        if chosen.remaining == 0:
-            chosen.completion = clock
-            chosen.turnaround = chosen.completion - chosen.arrival
-            chosen.waiting    = chosen.turnaround  - chosen.burst
-            chosen.response   = chosen.first_start - chosen.arrival
-            done    += 1
-            cur_pid  = None
-
-    return timeline
-
-
-def report(processes: list[Process], timeline: list[tuple[str, int, int]]) -> None:
-    n = len(processes)
-    busy            = sum(p.burst      for p in processes)
-    first_arrival   = min(p.arrival    for p in processes)
-    last_completion = max(p.completion for p in processes)
-    total_time      = last_completion - first_arrival
-
-    print("PID  AT  BT  CT  TAT  WT  RT")
-    for p in sorted(processes, key=lambda x: x.pid):
-        print(f"{p.pid:<4} {p.arrival:3} {p.burst:3} {p.completion:3} "
-              f"{p.turnaround:4} {p.waiting:3} {p.response:3}")
-
-    print()
-    print("Gantt:", " | ".join(f"{pid} {s}-{e}" for pid, s, e in timeline))
-    print(f"Average WT  : {sum(p.waiting    for p in processes) / n:.2f}")
-    print(f"Average TAT : {sum(p.turnaround for p in processes) / n:.2f}")
-    print(f"Average RT  : {sum(p.response   for p in processes) / n:.2f}")
-    print(f"CPU busy    : {busy}")
-    print(f"CPU idle    : {total_time - busy}")
-    print(f"CPU util    : {100 * busy / total_time:.2f}%")
-
-
-if __name__ == "__main__":
-    demo = [
-        Process("P1", arrival=0, burst=9),
-        Process("P2", arrival=1, burst=5),
-        Process("P3", arrival=2, burst=3),
-        Process("P4", arrival=3, burst=1),
-    ]
-    report(demo, srtf(demo))`,
-
-  typescript: `/**
- * Shortest Remaining Time First (SRTF) — preemptive.
- * Rule: at every clock tick, run the arrived process with the least
- * remaining time. The CPU is preempted the instant a shorter job arrives.
- *
- * Tie-break (applied in order):
- *   1. Smallest remaining time.
- *   2. If equal: earlier arrival time.
- *   3. If still equal: lower process id (lexicographic).
- * On a tie with the currently running process, no preemption occurs.
+/**
+ * Shortest Remaining Time First (SRTF) — Preemptive SJF
+ * Rule: At each time tick, pick the available process with the shortest remaining time.
  */
 
-interface ProcessInput {
+interface Process {
   id: string;
-  arrivalTime: number;
-  burstTime: number;
+  at: number;
+  bt: number;
+  remainingBt: number;
+  firstStart: number;
+  ct?: number;
+  tat?: number;
+  wt?: number;
+  rt?: number;
 }
 
-interface GanttBlock {
-  processId: string; // "IDLE" marks a CPU gap
-  startTime: number;
-  endTime: number;
-}
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
 
-interface ProcessResult extends ProcessInput {
-  completionTime: number;
-  turnaroundTime: number;
-  waitingTime: number;
-  responseTime: number;
-}
+const ask = (q: string): Promise<string> =>
+  new Promise((resolve) => rl.question(q, resolve));
 
-interface SchedulingResult {
-  gantt: GanttBlock[];
-  processes: ProcessResult[];
-  averageWaitingTime: number;
-  averageTurnaroundTime: number;
-  averageResponseTime: number;
-  cpuBusyTime: number;
-  cpuIdleTime: number;
-  cpuUtilization: number;
-}
+async function main() {
+  const nStr = await ask('Enter number of processes: ');
+  const n = parseInt(nStr.trim(), 10);
+  const processes: Process[] = [];
 
-interface SimState {
-  remaining: number;
-  firstStart: number; // -1 until first scheduled
-}
-
-/** Return the process to run at 'now', or null if the CPU must idle.
- *  curId is '' when the CPU is idle.
- *  Equal remaining time -> the running process keeps the CPU (no preemption). */
-function pickSrtf(
-  input: ProcessInput[],
-  state: Map<string, SimState>,
-  now: number,
-  curId: string,
-): ProcessInput | null {
-  let best: ProcessInput | null = null;
-  for (const p of input) {
-    const s = state.get(p.id)!;
-    if (p.arrivalTime > now || s.remaining <= 0) continue;
-    if (best === null) { best = p; continue; }
-    const bs = state.get(best.id)!;
-    if (s.remaining > bs.remaining) continue;
-    if (s.remaining < bs.remaining) { best = p; continue; }
-    // Equal remaining: keep the running process (no preemption on tie).
-    if (best.id === curId) continue;
-    if (p.id    === curId) { best = p; continue; }
-    // Neither is running: earlier arrival wins.
-    if (p.arrivalTime > best.arrivalTime) continue;
-    if (p.arrivalTime < best.arrivalTime) { best = p; continue; }
-    // Still tied: lower id wins.
-    if (p.id < best.id) best = p;
+  for (let i = 0; i < n; i++) {
+    const input = await ask(\`Process \${i + 1} (ID Arrival Burst): \`);
+    const [id, atStr, btStr] = input.trim().split(/\\s+/);
+    const bt = parseInt(btStr, 10);
+    processes.push({
+      id,
+      at: parseInt(atStr, 10),
+      bt,
+      remainingBt: bt,
+      firstStart: -1,
+    });
   }
-  return best;
-}
+  rl.close();
 
-function srtf(input: ProcessInput[]): SchedulingResult {
-  const state = new Map<string, SimState>(
-    input.map((p) => [p.id, { remaining: p.burstTime, firstStart: -1 }]),
-  );
+  let currentTime = 0;
+  let completed = 0;
+  let totalTat = 0;
+  let totalWt = 0;
 
-  const gantt: GanttBlock[] = [];
-  const processes: ProcessResult[] = [];
-  let clock = 0;
-  let done = 0;
-  let curId = '';
-  const n = input.length;
+  while (completed < n) {
+    const ready = processes.filter((p) => p.at <= currentTime && p.remainingBt > 0);
 
-  while (done < n) {
-    const chosen = pickSrtf(input, state, clock, curId);
-
-    if (chosen === null) {
-      // CPU idle: fast-forward to the next arrival.
-      let nextArrival = Infinity;
-      for (const p of input) {
-        const s = state.get(p.id)!;
-        if (s.remaining > 0 && p.arrivalTime < nextArrival)
-          nextArrival = p.arrivalTime;
-      }
-      if (!isFinite(nextArrival)) break;
-      const last = gantt[gantt.length - 1];
-      if (last && last.processId === 'IDLE') last.endTime = nextArrival;
-      else gantt.push({ processId: 'IDLE', startTime: clock, endTime: nextArrival });
-      clock = nextArrival;
-      curId = '';
+    if (ready.length === 0) {
+      currentTime++;
       continue;
     }
 
-    const s = state.get(chosen.id)!;
-    if (s.firstStart === -1) s.firstStart = clock;
+    // Pick smallest remaining burst (tie-breaker: earlier arrival)
+    ready.sort((a, b) => a.remainingBt - b.remainingBt || a.at - b.at);
+    const chosen = ready[0];
 
-    // Extend the last Gantt block or open a new one (adjacency merge).
-    // A process preempted and resumed still shows as separate non-adjacent blocks.
-    const last = gantt[gantt.length - 1];
-    if (last && last.processId === chosen.id) last.endTime = clock + 1;
-    else gantt.push({ processId: chosen.id, startTime: clock, endTime: clock + 1 });
+    if (chosen.firstStart === -1) {
+      chosen.firstStart = currentTime;
+      chosen.rt = currentTime - chosen.at;
+    }
 
-    curId = chosen.id;
-    s.remaining -= 1;
-    clock += 1;
+    chosen.remainingBt--;
+    currentTime++;
 
-    if (s.remaining === 0) {
-      processes.push({
-        id: chosen.id,
-        arrivalTime: chosen.arrivalTime,
-        burstTime: chosen.burstTime,
-        completionTime: clock,
-        turnaroundTime: clock - chosen.arrivalTime,
-        waitingTime: clock - chosen.arrivalTime - chosen.burstTime,
-        responseTime: s.firstStart - chosen.arrivalTime,
-      });
-      done += 1;
-      curId = '';
+    if (chosen.remainingBt === 0) {
+      chosen.ct = currentTime;
+      chosen.tat = chosen.ct - chosen.at;
+      chosen.wt = chosen.tat - chosen.bt;
+
+      completed++;
+      totalTat += chosen.tat;
+      totalWt += chosen.wt;
     }
   }
 
-  return summarise(input, gantt, processes);
+  console.log('\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT');
+  for (const p of processes) {
+    console.log(\`\${p.id}\\t\${p.at}\\t\${p.bt}\\t\${p.ct}\\t\${p.tat}\\t\${p.wt}\\t\${p.rt}\`);
+  }
+  console.log(\`\\nAverage Turnaround Time: \${(totalTat / n).toFixed(2)}\`);
+  console.log(\`Average Waiting Time   : \${(totalWt / n).toFixed(2)}\`);
 }
 
-/** Derives every reported figure from the emitted timeline. */
-function summarise(
-  input: ProcessInput[],
-  gantt: GanttBlock[],
-  processes: ProcessResult[],
-): SchedulingResult {
-  const n = processes.length;
-  const startTime = Math.min(...input.map((p) => p.arrivalTime));
-  const endTime = Math.max(...gantt.map((b) => b.endTime));
-  const totalTime = endTime - startTime;
-
-  const cpuBusyTime = gantt
-    .filter((b) => b.processId !== 'IDLE')
-    .reduce((sum, b) => sum + (b.endTime - b.startTime), 0);
-
-  const mean = (pick: (p: ProcessResult) => number): number =>
-    Math.round((processes.reduce((s, p) => s + pick(p), 0) / n) * 100) / 100;
-
-  return {
-    gantt,
-    processes,
-    averageWaitingTime: mean((p) => p.waitingTime),
-    averageTurnaroundTime: mean((p) => p.turnaroundTime),
-    averageResponseTime: mean((p) => p.responseTime),
-    cpuBusyTime,
-    cpuIdleTime: totalTime - cpuBusyTime,
-    cpuUtilization: Math.round((cpuBusyTime / totalTime) * 10000) / 100,
-  };
-}
-
-// -- Demo ------------------------------------------------
-const demo: ProcessInput[] = [
-  { id: 'P1', arrivalTime: 0, burstTime: 9 },
-  { id: 'P2', arrivalTime: 1, burstTime: 5 },
-  { id: 'P3', arrivalTime: 2, burstTime: 3 },
-  { id: 'P4', arrivalTime: 3, burstTime: 1 },
-];
-
-const result = srtf(demo);
-console.table(result.processes);
-console.log('Average WT :', result.averageWaitingTime);
-console.log('CPU util   :', result.cpuUtilization + '%');`,
+main();`,
 };

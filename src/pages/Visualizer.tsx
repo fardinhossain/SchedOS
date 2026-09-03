@@ -9,13 +9,14 @@
  * instead, which is far less confusing during a demonstration.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Play, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Code2, Play, RefreshCw } from 'lucide-react';
 import type { LabState } from '../App';
 import type { AlgorithmOptions, SchedulingResult } from '../types/scheduling';
 import { IDLE_ID } from '../types/scheduling';
 import { ALGORITHM_MAP, SCHEDULERS } from '../algorithms';
 import { validate } from '../engine/validation';
 import { PageHeader } from '../components/Sidebar';
+import type { PageId } from '../components/Sidebar';
 import { Panel } from '../components/Panel';
 import { AlgorithmSelector } from '../components/AlgorithmSelector';
 import { ProcessTable } from '../components/ProcessTable';
@@ -26,15 +27,15 @@ import { SystemLog } from '../components/SystemLog';
 import { SimulationControls } from '../components/SimulationControls';
 import { MetricsTable } from '../components/MetricsTable';
 import { PerformanceCards, UtilizationGauge } from '../components/PerformanceCards';
-import { CodeViewer } from '../components/CodeViewer';
 import { EmptyState } from '../components/EmptyState';
 import { useSimulation, useSimulationShortcuts } from '../components/useSimulation';
 
 interface VisualizerProps {
   lab: LabState;
+  onNavigate?: (page: PageId) => void;
 }
 
-export function Visualizer({ lab }: VisualizerProps) {
+export function Visualizer({ lab, onNavigate }: VisualizerProps) {
   const { processes, algorithm, timeQuantum, colors } = lab;
   const meta = ALGORITHM_MAP[algorithm];
 
@@ -97,15 +98,27 @@ export function Visualizer({ lab }: VisualizerProps) {
         title="Visualizer"
         subtitle={`${meta.name} — ${meta.rule}`}
         actions={
-          <button
-            type="button"
-            onClick={run}
-            disabled={!valid}
-            className="flex items-center gap-1.5 border border-ink bg-crt px-3 py-2 text-xs font-bold text-ink transition-colors hover:bg-crt-dim disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Play aria-hidden="true" className="h-3.5 w-3.5" />
-            Run Simulation
-          </button>
+          <div className="flex items-center gap-2">
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('code')}
+                className="flex items-center gap-1.5 border border-ink px-3 py-2 text-xs font-semibold text-text transition-colors hover:bg-ink hover:text-bone"
+              >
+                <Code2 aria-hidden="true" className="h-3.5 w-3.5" />
+                View Code
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={run}
+              disabled={!valid}
+              className="flex items-center gap-1.5 border border-ink bg-crt px-3 py-2 text-xs font-bold text-ink transition-colors hover:bg-crt-dim disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Play aria-hidden="true" className="h-3.5 w-3.5" />
+              Run Simulation
+            </button>
+          </div>
         }
       />
 
@@ -294,9 +307,6 @@ export function Visualizer({ lab }: VisualizerProps) {
           </p>
         )}
       </Panel>
-
-      {/* ── Code viewer ──────────────────────────────────────── */}
-      <CodeViewer algorithmId={algorithm} />
     </div>
   );
 }

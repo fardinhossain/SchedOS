@@ -1,344 +1,215 @@
 /**
- * Educational reference implementations of LJF (non-preemptive).
- * Same logic in every language; only the syntax differs.
- * These are displayed for learning only — never executed by the simulator.
+ * Educational reference implementations of LJF (Longest Job First - Non-Preemptive).
+ * Rule: Among all arrived processes, pick the one with the longest burst time.
  */
 import type { SupportedLanguage } from '../types/scheduling';
 
 export const ljfCode: Record<SupportedLanguage, string> = {
   c: `#include <stdio.h>
+#include <stdbool.h>
 
-/* Longest Job First (LJF) — non-preemptive.
-   Rule: among all processes that have ARRIVED (arrival <= clock), pick
-   the one with the LARGEST burst time and run it to completion.
-
-   LJF is the pathological opposite of SJF: by always choosing the
-   longest job it maximises average waiting time — short jobs get stuck
-   waiting behind every large one, ballooning turnaround times.
-   It is studied as the worst-case counterexample to SJF optimality. */
+/* Longest Job First (LJF) — Non-Preemptive
+   Rule: Pick available process with longest burst time, run to completion. */
 
 typedef struct {
-    char  id[8];
-    int   arrival;
-    int   burst;
-    int   completion;
-    int   turnaround;
-    int   waiting;
-    int   response;
-    int   done;      /* 1 once the process has been scheduled */
+    char id[10];
+    int at, bt;
+    int ct, tat, wt, rt;
+    bool completed;
 } Process;
 
-/* Return the index of the arrived, unscheduled process with the
-   longest burst.  Tie-break: earlier arrival wins; then lower index
-   (i.e. the process that was entered first). */
-int select_ljf(Process p[], int n, int clock) {
-    int chosen = -1;
+int main() {
+    int n;
+    printf("Enter number of processes: ");
+    if (scanf("%d", &n) != 1 || n <= 0) return 0;
+
+    Process p[50];
     for (int i = 0; i < n; i++) {
-        if (p[i].done || p[i].arrival > clock) continue;   /* key guard */
-        if (chosen == -1) { chosen = i; continue; }
-        if (p[i].burst > p[chosen].burst ||
-            (p[i].burst == p[chosen].burst &&
-             p[i].arrival < p[chosen].arrival) ||
-            (p[i].burst == p[chosen].burst &&
-             p[i].arrival == p[chosen].arrival && i < chosen)) {
-            chosen = i;
+        printf("Process %d (ID Arrival Burst): ", i + 1);
+        scanf("%s %d %d", p[i].id, &p[i].at, &p[i].bt);
+        p[i].completed = false;
+    }
+
+    int current_time = 0, completed = 0;
+    float total_tat = 0, total_wt = 0;
+
+    while (completed < n) {
+        int idx = -1;
+        int max_bt = -1;
+
+        /* Find arrived process with longest burst time */
+        for (int i = 0; i < n; i++) {
+            if (p[i].at <= current_time && !p[i].completed) {
+                if (p[i].bt > max_bt) {
+                    max_bt = p[i].bt;
+                    idx = i;
+                } else if (p[i].bt == max_bt) {
+                    if (p[i].at < p[idx].at) idx = i; /* Tie: earlier arrival */
+                }
+            }
         }
-    }
-    return chosen;
-}
 
-/* Minimum arrival time among processes that have not yet been scheduled.
-   Called only when no process is ready (CPU is idle). */
-int next_arrival(Process p[], int n) {
-    int t = -1;
-    for (int i = 0; i < n; i++) {
-        if (p[i].done) continue;
-        if (t == -1 || p[i].arrival < t) t = p[i].arrival;
-    }
-    return t;
-}
-
-void ljf(Process p[], int n) {
-    int clock = 0, scheduled = 0;
-    while (scheduled < n) {
-        int idx = select_ljf(p, n, clock);
         if (idx == -1) {
-            /* No process has arrived yet — jump forward to avoid busy-wait. */
-            clock = next_arrival(p, n);
+            current_time++; /* No process arrived yet -> CPU sits idle */
             continue;
         }
-        p[idx].response   = clock - p[idx].arrival;   /* first start - arrival */
-        clock            += p[idx].burst;
-        p[idx].completion = clock;
-        p[idx].turnaround = p[idx].completion - p[idx].arrival;
-        p[idx].waiting    = p[idx].turnaround - p[idx].burst;
-        p[idx].done       = 1;
-        scheduled++;
+
+        /* Run chosen process to completion */
+        p[idx].rt = current_time - p[idx].at;
+        p[idx].ct = current_time + p[idx].bt;
+        p[idx].tat = p[idx].ct - p[idx].at;
+        p[idx].wt = p[idx].tat - p[idx].bt;
+        p[idx].completed = true;
+
+        current_time = p[idx].ct;
+        completed++;
+        total_tat += p[idx].tat;
+        total_wt += p[idx].wt;
     }
-}
 
-int main(void) {
-    int n;
-    printf("Number of processes: ");
-    if (scanf("%d", &n) != 1 || n <= 0) return 1;
-
-    Process p[64];
+    /* Print Output Table */
+    printf("\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT\\n");
     for (int i = 0; i < n; i++) {
-        printf("PID, arrival, burst for process %d: ", i + 1);
-        scanf("%7s %d %d", p[i].id, &p[i].arrival, &p[i].burst);
-        p[i].done = 0;
+        printf("%s\\t%d\\t%d\\t%d\\t%d\\t%d\\t%d\\n",
+               p[i].id, p[i].at, p[i].bt, p[i].ct, p[i].tat, p[i].wt, p[i].rt);
     }
-
-    ljf(p, n);
-
-    double total_wt = 0, total_tat = 0, total_rt = 0;
-    int busy = 0, last = 0;
-    int first_arrival = p[0].arrival;
-    for (int i = 1; i < n; i++)
-        if (p[i].arrival < first_arrival) first_arrival = p[i].arrival;
-
-    printf("\\nPID  AT  BT  CT  TAT  WT  RT\\n");
-    for (int i = 0; i < n; i++) {
-        printf("%-4s %3d %3d %3d %4d %3d %3d\\n",
-               p[i].id, p[i].arrival, p[i].burst,
-               p[i].completion, p[i].turnaround,
-               p[i].waiting, p[i].response);
-        total_wt  += p[i].waiting;
-        total_tat += p[i].turnaround;
-        total_rt  += p[i].response;
-        busy      += p[i].burst;
-        if (p[i].completion > last) last = p[i].completion;
-    }
-
-    int total_time = last - first_arrival;
-    printf("\\nAverage WT  : %.2f\\n", total_wt  / n);
-    printf("Average TAT : %.2f\\n", total_tat / n);
-    printf("Average RT  : %.2f\\n", total_rt  / n);
-    printf("CPU busy    : %d\\n", busy);
-    printf("CPU idle    : %d\\n", total_time - busy);
-    printf("CPU util    : %.2f%%\\n", 100.0 * busy / total_time);
+    printf("\\nAverage Turnaround Time: %.2f", total_tat / n);
+    printf("\\nAverage Waiting Time   : %.2f\\n", total_wt / n);
     return 0;
 }`,
 
-  python: `"""Longest Job First (LJF) — non-preemptive.
-Rule: among all processes that have ARRIVED (arrival <= clock),
-pick the one with the LARGEST burst time and run it to completion.
+  python: `\"\"\"Longest Job First (LJF) — Non-Preemptive
+Rule: Among all arrived processes, pick the one with the longest burst time.
+\"\"\"
 
-LJF is the pathological opposite of SJF: always choosing the longest
-job maximises average waiting time. Short processes get stuck waiting
-behind every large one — a useful classroom counterexample showing
-exactly why SJF is optimal.
-"""
-from dataclasses import dataclass, field
+# 1. Take interactive input from user
+n = int(input("Enter number of processes: "))
+processes = []
 
+for i in range(n):
+    line = input(f"Process {i + 1} (ID Arrival Burst): ").split()
+    processes.append({
+        'id': line[0],
+        'at': int(line[1]),
+        'bt': int(line[2]),
+        'completed': False
+    })
 
-@dataclass
-class Process:
-    pid: str
-    arrival: int
-    burst: int
-    completion: int = field(default=0)
-    turnaround: int = field(default=0)
-    waiting: int = field(default=0)
-    response: int = field(default=0)
+# 2. Simulation loop
+current_time = 0
+completed = 0
+total_tat = 0
+total_wt = 0
 
+while completed < n:
+    # Filter arrived, unfinished processes
+    ready = [p for p in processes if p['at'] <= current_time and not p['completed']]
 
-def ljf(processes: list[Process]) -> list[tuple[str, int, int]]:
-    """Schedules the processes in place and returns the Gantt timeline
-    as a list of (pid, start, end) tuples. 'IDLE' marks CPU gaps."""
-    remaining = list(processes)   # work list; entries removed as scheduled
-    timeline: list[tuple[str, int, int]] = []
-    clock = 0
+    if not ready:
+        current_time += 1  # CPU idle
+        continue
 
-    while remaining:
-        # Key difference from FCFS: only consider processes that have arrived.
-        ready = [p for p in remaining if p.arrival <= clock]
+    # Pick longest burst (tie-breaker: earlier arrival)
+    chosen = min(ready, key=lambda p: (-p['bt'], p['at']))
 
-        if not ready:
-            # No process is ready — advance to the nearest future arrival.
-            next_arrival = min(p.arrival for p in remaining)
-            timeline.append(("IDLE", clock, next_arrival))
-            clock = next_arrival
-            continue
+    chosen['rt'] = current_time - chosen['at']
+    chosen['ct'] = current_time + chosen['bt']
+    chosen['tat'] = chosen['ct'] - chosen['at']
+    chosen['wt'] = chosen['tat'] - chosen['bt']
+    chosen['completed'] = True
 
-        # LJF selection: largest burst wins (opposite of SJF).
-        # Tie-break: earlier arrival, then lexicographic pid.
-        chosen = sorted(ready, key=lambda p: (-p.burst, p.arrival, p.pid))[0]
+    current_time = chosen['ct']
+    completed += 1
+    total_tat += chosen['tat']
+    total_wt += chosen['wt']
 
-        start = clock
-        chosen.response = start - chosen.arrival          # first start - arrival
-        clock += chosen.burst
-        chosen.completion = clock
-        chosen.turnaround = chosen.completion - chosen.arrival
-        chosen.waiting = chosen.turnaround - chosen.burst
+# 3. Print Results
+print("\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT")
+for p in processes:
+    print(f"{p['id']}\\t{p['at']}\\t{p['bt']}\\t{p['ct']}\\t{p['tat']}\\t{p['wt']}\\t{p['rt']}")
 
-        timeline.append((chosen.pid, start, clock))
-        remaining.remove(chosen)
+print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
+print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-    return timeline
+  typescript: `import * as readline from 'readline';
 
-
-def report(processes: list[Process], timeline: list[tuple[str, int, int]]) -> None:
-    n = len(processes)
-    busy = sum(p.burst for p in processes)
-    first_arrival = min(p.arrival for p in processes)
-    last_completion = max(p.completion for p in processes)
-    total_time = last_completion - first_arrival
-
-    print("PID  AT  BT  CT  TAT  WT  RT")
-    for p in sorted(processes, key=lambda x: x.pid):
-        print(f"{p.pid:<4} {p.arrival:3} {p.burst:3} {p.completion:3} "
-              f"{p.turnaround:4} {p.waiting:3} {p.response:3}")
-
-    print()
-    print("Gantt:", " | ".join(f"{pid} {s}-{e}" for pid, s, e in timeline))
-    print(f"Average WT  : {sum(p.waiting for p in processes) / n:.2f}")
-    print(f"Average TAT : {sum(p.turnaround for p in processes) / n:.2f}")
-    print(f"Average RT  : {sum(p.response for p in processes) / n:.2f}")
-    print(f"CPU busy    : {busy}")
-    print(f"CPU idle    : {total_time - busy}")
-    print(f"CPU util    : {100 * busy / total_time:.2f}%")
-
-
-if __name__ == "__main__":
-    demo = [
-        Process("P1", arrival=0, burst=8),
-        Process("P2", arrival=1, burst=4),
-        Process("P3", arrival=2, burst=2),
-        Process("P4", arrival=3, burst=6),
-    ]
-    report(demo, ljf(demo))`,
-
-  typescript: `/**
- * Longest Job First (LJF) — non-preemptive.
- * Rule: among all processes that have ARRIVED, pick the one with the
- * largest burst time and run it to completion.
- *
- * LJF is the pathological opposite of SJF: always choosing the longest
- * job maximises average waiting time. Short processes are perpetually
- * pushed to the back of the queue, making LJF a canonical worst-case
- * counterexample for non-preemptive scheduling analysis.
+/**
+ * Longest Job First (LJF) — Non-Preemptive
+ * Rule: Among all arrived processes, pick the one with the longest burst time.
  */
 
-interface ProcessInput {
+interface Process {
   id: string;
-  arrivalTime: number;
-  burstTime: number;
+  at: number;
+  bt: number;
+  ct?: number;
+  tat?: number;
+  wt?: number;
+  rt?: number;
+  completed: boolean;
 }
 
-interface GanttBlock {
-  processId: string; // "IDLE" marks a CPU gap
-  startTime: number;
-  endTime: number;
-}
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
 
-interface ProcessResult extends ProcessInput {
-  completionTime: number;
-  turnaroundTime: number;
-  waitingTime: number;
-  responseTime: number;
-}
+const ask = (q: string): Promise<string> =>
+  new Promise((resolve) => rl.question(q, resolve));
 
-interface SchedulingResult {
-  gantt: GanttBlock[];
-  processes: ProcessResult[];
-  averageWaitingTime: number;
-  averageTurnaroundTime: number;
-  averageResponseTime: number;
-  cpuBusyTime: number;
-  cpuIdleTime: number;
-  cpuUtilization: number;
-}
+async function main() {
+  const nStr = await ask('Enter number of processes: ');
+  const n = parseInt(nStr.trim(), 10);
+  const processes: Process[] = [];
 
-function ljf(input: ProcessInput[]): SchedulingResult {
-  // Work on shallow copies so the caller's array is unchanged.
-  const remaining: ProcessInput[] = input.map((p) => ({ ...p }));
-  const gantt: GanttBlock[] = [];
-  const processes: ProcessResult[] = [];
-  let clock = 0;
+  for (let i = 0; i < n; i++) {
+    const input = await ask(\`Process \${i + 1} (ID Arrival Burst): \`);
+    const [id, at, bt] = input.trim().split(/\\s+/);
+    processes.push({
+      id,
+      at: parseInt(at, 10),
+      bt: parseInt(bt, 10),
+      completed: false,
+    });
+  }
+  rl.close();
 
-  while (remaining.length > 0) {
-    // Key difference from FCFS: only processes that have arrived are eligible.
-    const ready = remaining.filter((p) => p.arrivalTime <= clock);
+  let currentTime = 0;
+  let completed = 0;
+  let totalTat = 0;
+  let totalWt = 0;
+
+  while (completed < n) {
+    const ready = processes.filter((p) => p.at <= currentTime && !p.completed);
 
     if (ready.length === 0) {
-      // No process has arrived yet — advance the clock to avoid busy-wait.
-      const nextArrival = Math.min(...remaining.map((p) => p.arrivalTime));
-      gantt.push({ processId: 'IDLE', startTime: clock, endTime: nextArrival });
-      clock = nextArrival;
+      currentTime++; // CPU idle
       continue;
     }
 
-    // LJF selection: largest burst wins (opposite of SJF).
-    // Tie-break: earlier arrival, then lexicographic id.
-    ready.sort(
-      (a, b) =>
-        b.burstTime - a.burstTime ||
-        a.arrivalTime - b.arrivalTime ||
-        a.id.localeCompare(b.id),
-    );
+    // Pick longest burst (tie-breaker: earlier arrival)
+    ready.sort((a, b) => b.bt - a.bt || a.at - b.at);
     const chosen = ready[0];
 
-    const startTime = clock;
-    clock += chosen.burstTime;
+    chosen.rt = currentTime - chosen.at;
+    chosen.ct = currentTime + chosen.bt;
+    chosen.tat = chosen.ct - chosen.at;
+    chosen.wt = chosen.tat - chosen.bt;
+    chosen.completed = true;
 
-    gantt.push({ processId: chosen.id, startTime, endTime: clock });
-    processes.push({
-      ...chosen,
-      completionTime: clock,
-      turnaroundTime: clock - chosen.arrivalTime,
-      waitingTime: clock - chosen.arrivalTime - chosen.burstTime,
-      responseTime: startTime - chosen.arrivalTime,
-    });
-
-    // Remove scheduled process from the work list.
-    const idx = remaining.findIndex((p) => p.id === chosen.id);
-    remaining.splice(idx, 1);
+    currentTime = chosen.ct;
+    completed++;
+    totalTat += chosen.tat;
+    totalWt += chosen.wt;
   }
 
-  return summarise(input, gantt, processes);
+  console.log('\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT');
+  for (const p of processes) {
+    console.log(\`\${p.id}\\t\${p.at}\\t\${p.bt}\\t\${p.ct}\\t\${p.tat}\\t\${p.wt}\\t\${p.rt}\`);
+  }
+  console.log(\`\\nAverage Turnaround Time: \${(totalTat / n).toFixed(2)}\`);
+  console.log(\`Average Waiting Time   : \${(totalWt / n).toFixed(2)}\`);
 }
 
-/** Derives every reported figure from the emitted timeline. */
-function summarise(
-  input: ProcessInput[],
-  gantt: GanttBlock[],
-  processes: ProcessResult[],
-): SchedulingResult {
-  const n = processes.length;
-  const startTime = Math.min(...input.map((p) => p.arrivalTime));
-  const endTime = Math.max(...gantt.map((b) => b.endTime));
-  const totalTime = endTime - startTime;
-
-  const cpuBusyTime = gantt
-    .filter((b) => b.processId !== 'IDLE')
-    .reduce((sum, b) => sum + (b.endTime - b.startTime), 0);
-
-  const mean = (pick: (p: ProcessResult) => number): number =>
-    Math.round((processes.reduce((s, p) => s + pick(p), 0) / n) * 100) / 100;
-
-  return {
-    gantt,
-    processes,
-    averageWaitingTime: mean((p) => p.waitingTime),
-    averageTurnaroundTime: mean((p) => p.turnaroundTime),
-    averageResponseTime: mean((p) => p.responseTime),
-    cpuBusyTime,
-    cpuIdleTime: totalTime - cpuBusyTime,
-    cpuUtilization: Math.round((cpuBusyTime / totalTime) * 10000) / 100,
-  };
-}
-
-// ── Demo ──────────────────────────────────────────────────────
-const demo: ProcessInput[] = [
-  { id: 'P1', arrivalTime: 0, burstTime: 8 },
-  { id: 'P2', arrivalTime: 1, burstTime: 4 },
-  { id: 'P3', arrivalTime: 2, burstTime: 2 },
-  { id: 'P4', arrivalTime: 3, burstTime: 6 },
-];
-
-const result = ljf(demo);
-console.table(result.processes);
-console.log('Average WT :', result.averageWaitingTime);
-console.log('CPU util   :', result.cpuUtilization + '%');`,
+main();`,
 };

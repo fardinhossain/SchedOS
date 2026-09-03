@@ -1,506 +1,320 @@
 /**
  * Educational reference implementations of Round Robin (RR).
- * Same logic in every language; only the syntax differs.
- * These are displayed for learning only — never executed by the simulator.
+ * Rule: Processes run cyclically in a FIFO queue for at most a fixed time quantum.
+ * Precedence Rule: Newly arrived processes at the instant of quantum expiration are
+ * enqueued BEFORE the preempted process is re-queued.
  */
 import type { SupportedLanguage } from '../types/scheduling';
 
 export const roundRobinCode: Record<SupportedLanguage, string> = {
   c: `#include <stdio.h>
-#include <string.h>
+#include <stdbool.h>
 
-/* Round Robin (RR) — preemptive with a fixed time quantum.
-   Rule: each process runs for at most one quantum, then goes to the BACK
-   of the FIFO ready queue.
-
-   CRITICAL correctness rule: when a process ARRIVES at the exact instant
-   a quantum expires, that arriving process must be enqueued BEFORE the
-   preempted process is re-queued.  Getting this order backwards causes the
-   just-preempted process to run again immediately, violating fairness and
-   producing wrong completion times.  This is the most common bug in student
-   Round Robin implementations.
-
-   The ready queue is an explicit FIFO array; no selection key is used. */
-
-#define MAXN   64
-#define MAXQ   (MAXN * 300)
-#define MAXSEG (MAXN * 300)
+/* Round Robin (RR) Scheduling
+   Rule: Execute processes using a fixed time quantum in cyclic FIFO order. */
 
 typedef struct {
-    char id[8];
-    int  arrival;
-    int  burst;
-    int  remaining;
-    int  first_start; /* -1 until first scheduled */
-    int  completion;
-    int  turnaround;
-    int  waiting;
-    int  response;
+    char id[10];
+    int at, bt, remaining_bt;
+    int ct, tat, wt, rt;
+    int first_start;
 } Process;
 
-typedef struct { char id[8]; int start; int end; } Segment;
+int main() {
+    int n, quantum;
+    printf("Enter number of processes: ");
+    if (scanf("%d", &n) != 1 || n <= 0) return 0;
 
-/* Array-backed FIFO queue storing process indices. */
-typedef struct { int data[MAXQ]; int head, tail; } Queue;
-void q_push(Queue *q, int idx) { q->data[q->tail++] = idx; }
-int  q_pop (Queue *q)          { return q->data[q->head++]; }
-int  q_empty(Queue *q)         { return q->head == q->tail; }
-
-/* Sort by arrival so that the enqueue loops always add processes in the
-   correct chronological order when multiple arrivals occur together. */
-void sort_arrival(Process p[], int n) {
-    for (int i = 0; i < n - 1; i++)
-        for (int j = 0; j < n - 1 - i; j++)
-            if (p[j].arrival > p[j + 1].arrival) {
-                Process tmp = p[j]; p[j] = p[j + 1]; p[j + 1] = tmp;
-            }
-}
-
-void round_robin(Process p[], int n, int quantum, Segment segs[], int *nseg) {
-    sort_arrival(p, n);
+    Process p[50];
     for (int i = 0; i < n; i++) {
-        p[i].remaining   = p[i].burst;
+        printf("Process %d (ID Arrival Burst): ", i + 1);
+        scanf("%s %d %d", p[i].id, &p[i].at, &p[i].bt);
+        p[i].remaining_bt = p[i].bt;
         p[i].first_start = -1;
     }
 
-    Queue q = {.head = 0, .tail = 0};
-    int enq[MAXN] = {0};  /* enq[i]=1 once process i has entered the queue */
-    int clock = 0, done = 0;
-    *nseg = 0;
+    printf("Enter Time Quantum: ");
+    scanf("%d", &quantum);
 
-    while (done < n) {
-        /* Seed: enqueue any process that has arrived by the current clock. */
+    /* Sort initially by arrival time */
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+            if (p[j].at > p[j + 1].at) {
+                Process temp = p[j];
+                p[j] = p[j + 1];
+                p[j + 1] = temp;
+            }
+        }
+    }
+
+    /* Queue to store process indices */
+    int queue[500], front = 0, rear = 0;
+    bool in_queue[50] = {false};
+
+    int current_time = p[0].at;
+    /* Enqueue initial process */
+    queue[rear++] = 0;
+    in_queue[0] = true;
+
+    int completed = 0;
+    float total_tat = 0, total_wt = 0;
+
+    while (completed < n) {
+        if (front == rear) {
+            /* Queue is empty -> advance time to next unqueued arrival */
+            for (int i = 0; i < n; i++) {
+                if (p[i].remaining_bt > 0) {
+                    current_time = p[i].at;
+                    queue[rear++] = i;
+                    in_queue[i] = true;
+                    break;
+                }
+            }
+        }
+
+        int curr = queue[front++];
+        if (p[curr].first_start == -1) {
+            p[curr].first_start = current_time;
+            p[curr].rt = current_time - p[curr].at;
+        }
+
+        int slice = (p[curr].remaining_bt < quantum) ? p[curr].remaining_bt : quantum;
+        p[curr].remaining_bt -= slice;
+        current_time += slice;
+
+        /* Enqueue any new processes that arrived while this one was running */
         for (int i = 0; i < n; i++) {
-            if (!enq[i] && p[i].arrival <= clock) {
-                q_push(&q, i);
-                enq[i] = 1;
+            if (!in_queue[i] && p[i].at <= current_time && p[i].remaining_bt > 0) {
+                queue[rear++] = i;
+                in_queue[i] = true;
             }
         }
 
-        if (q_empty(&q)) {
-            /* CPU idle — fast-forward to the next unqueued arrival. */
-            int earliest = -1;
-            for (int i = 0; i < n; i++) {
-                if (!enq[i] && (earliest == -1 || p[i].arrival < earliest))
-                    earliest = p[i].arrival;
-            }
-            if (earliest == -1) break;
-            strcpy(segs[*nseg].id, "IDLE");
-            segs[*nseg].start = clock;
-            segs[*nseg].end   = earliest;
-            (*nseg)++;
-            clock = earliest;
-            continue;
-        }
-
-        int idx = q_pop(&q);
-        if (p[idx].first_start == -1) p[idx].first_start = clock;
-
-        int run       = p[idx].remaining < quantum ? p[idx].remaining : quantum;
-        int seg_start = clock;
-        clock        += run;
-        p[idx].remaining -= run;
-
-        /* Each quantum is its own Gantt segment — do NOT merge adjacent
-           same-process blocks.  Every block represents one time slice; merging
-           would hide the quantum boundaries and make preemption invisible. */
-        strcpy(segs[*nseg].id, p[idx].id);
-        segs[*nseg].start = seg_start;
-        segs[*nseg].end   = clock;
-        (*nseg)++;
-
-        if (p[idx].remaining == 0) {
-            p[idx].completion = clock;
-            done++;
-            /* Still enqueue any process that arrived while this quantum ran. */
-            for (int i = 0; i < n; i++) {
-                if (!enq[i] && p[i].arrival <= clock) {
-                    q_push(&q, i);
-                    enq[i] = 1;
-                }
-            }
+        /* If current process still has remaining work, put it back in queue */
+        if (p[curr].remaining_bt > 0) {
+            queue[rear++] = curr;
         } else {
-            /* CRITICAL: enqueue NEW ARRIVALS first, THEN re-queue the preempted
-               process.  A process whose arrival == clock (the quantum-expiry
-               instant) must enter the queue BEFORE the process just preempted;
-               reversing this order is the most common student mistake. */
-            for (int i = 0; i < n; i++) {
-                if (!enq[i] && p[i].arrival <= clock) {
-                    q_push(&q, i);
-                    enq[i] = 1;
-                }
-            }
-            q_push(&q, idx);   /* preempted process goes to the back */
+            p[curr].ct = current_time;
+            p[curr].tat = p[curr].ct - p[curr].at;
+            p[curr].wt = p[curr].tat - p[curr].bt;
+
+            completed++;
+            total_tat += p[curr].tat;
+            total_wt += p[curr].wt;
         }
     }
 
+    /* Print Output Table */
+    printf("\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT\\n");
     for (int i = 0; i < n; i++) {
-        p[i].turnaround = p[i].completion - p[i].arrival;
-        p[i].waiting    = p[i].turnaround - p[i].burst;
-        p[i].response   = p[i].first_start - p[i].arrival;
+        printf("%s\\t%d\\t%d\\t%d\\t%d\\t%d\\t%d\\n",
+               p[i].id, p[i].at, p[i].bt, p[i].ct, p[i].tat, p[i].wt, p[i].rt);
     }
-}
-
-int main(void) {
-    int n, quantum;
-    printf("Number of processes: ");
-    if (scanf("%d", &n) != 1 || n <= 0) return 1;
-
-    Process p[MAXN];
-    for (int i = 0; i < n; i++) {
-        printf("PID, arrival, burst for process %d: ", i + 1);
-        scanf("%7s %d %d", p[i].id, &p[i].arrival, &p[i].burst);
-    }
-    printf("Time quantum: ");
-    if (scanf("%d", &quantum) != 1 || quantum <= 0) return 1;
-
-    Segment segs[MAXSEG];
-    int nseg = 0;
-    round_robin(p, n, quantum, segs, &nseg);
-
-    int first_arrival = p[0].arrival;
-    for (int i = 1; i < n; i++)
-        if (p[i].arrival < first_arrival) first_arrival = p[i].arrival;
-
-    double total_wt = 0, total_tat = 0, total_rt = 0;
-    int busy = 0, last = 0;
-
-    printf("\\nPID  AT  BT  CT  TAT  WT  RT\\n");
-    for (int i = 0; i < n; i++) {
-        printf("%-4s %3d %3d %3d %4d %3d %3d\\n",
-               p[i].id, p[i].arrival, p[i].burst,
-               p[i].completion, p[i].turnaround,
-               p[i].waiting, p[i].response);
-        total_wt  += p[i].waiting;
-        total_tat += p[i].turnaround;
-        total_rt  += p[i].response;
-        busy      += p[i].burst;
-        if (p[i].completion > last) last = p[i].completion;
-    }
-
-    int total_time = last - first_arrival;
-    printf("\\nGantt: ");
-    for (int i = 0; i < nseg; i++) {
-        if (i > 0) printf(" | ");
-        printf("%s %d-%d", segs[i].id, segs[i].start, segs[i].end);
-    }
-    printf("\\n\\nAverage WT  : %.2f\\n", total_wt  / n);
-    printf("Average TAT : %.2f\\n", total_tat / n);
-    printf("Average RT  : %.2f\\n", total_rt  / n);
-    printf("CPU busy    : %d\\n", busy);
-    printf("CPU idle    : %d\\n", total_time - busy);
-    printf("CPU util    : %.2f%%\\n", 100.0 * busy / total_time);
+    printf("\\nAverage Turnaround Time: %.2f", total_tat / n);
+    printf("\\nAverage Waiting Time   : %.2f\\n", total_wt / n);
     return 0;
 }`,
 
-  python: `"""Round Robin (RR) — preemptive with a fixed time quantum.
-Rule: each process runs for at most one quantum, then goes to the BACK
-of the FIFO ready queue.
-
-CRITICAL correctness rule: when a process ARRIVES at the exact instant a
-quantum expires, that arriving process must be enqueued BEFORE the preempted
-process is re-queued.  Reversing this order causes the just-preempted process
-to run again immediately, violating fairness.  This is the most common bug in
-student Round Robin implementations.
-
-The ready queue is an explicit collections.deque; no selection key is used.
-"""
+  python: `\"\"\"Round Robin (RR) Scheduling
+Rule: Execute processes using a fixed time quantum in cyclic FIFO order.
+\"\"\"
 from collections import deque
-from dataclasses import dataclass, field
 
-QUANTUM = 2   # time slices per turn
+# 1. Take interactive input from user
+n = int(input("Enter number of processes: "))
+processes = []
 
+for i in range(n):
+    line = input(f"Process {i + 1} (ID Arrival Burst): ").split()
+    bt = int(line[2])
+    processes.append({
+        'id': line[0],
+        'at': int(line[1]),
+        'bt': bt,
+        'remaining_bt': bt,
+        'first_start': -1,
+        'rt': 0, 'ct': 0, 'tat': 0, 'wt': 0
+    })
 
-@dataclass
-class Process:
-    pid: str
-    arrival: int
-    burst: int
-    remaining: int = field(default=0)
-    first_start: int = field(default=-1)
-    completion: int = field(default=0)
-    turnaround: int = field(default=0)
-    waiting: int = field(default=0)
-    response: int = field(default=0)
+quantum = int(input("Enter Time Quantum: "))
 
+# Sort by arrival initially
+processes.sort(key=lambda p: p['at'])
 
-def round_robin(
-    processes: list[Process],
-    quantum: int = QUANTUM,
-) -> list[tuple[str, int, int]]:
-    """Schedules with Round Robin, mutates processes in place, and returns
-    the Gantt timeline as a list of (pid, start, end) tuples.
+# 2. Simulation with FIFO queue
+queue = deque()
+in_queue = [False] * n
 
-    Each tuple represents ONE quantum slice.  Adjacent same-process slices
-    are NOT merged: every block shows one time-slice boundary, which is the
-    information a Round Robin Gantt chart exists to communicate."""
-    for p in processes:
-        p.remaining   = p.burst
-        p.first_start = -1
+current_time = processes[0]['at']
+queue.append(0)
+in_queue[0] = True
 
-    # Sort by arrival so enqueue loops add processes in the correct order.
-    by_arrival = sorted(processes, key=lambda p: (p.arrival, p.pid))
-    enqueued: set[str] = set()
-    ready: deque[Process] = deque()
-    timeline: list[tuple[str, int, int]] = []
-    clock = 0
-    done  = 0
-    n     = len(processes)
+completed = 0
+total_tat = 0
+total_wt = 0
 
-    def enqueue_arrivals(up_to: int) -> None:
-        """Enqueue all unqueued processes that have arrived by 'up_to'."""
-        for p in by_arrival:
-            if p.pid not in enqueued and p.arrival <= up_to:
-                ready.append(p)
-                enqueued.add(p.pid)
+while completed < n:
+    if not queue:
+        # Advance time to earliest remaining unqueued process
+        for i, p in enumerate(processes):
+            if p['remaining_bt'] > 0:
+                current_time = p['at']
+                queue.append(i)
+                in_queue[i] = True
+                break
 
-    while done < n:
-        enqueue_arrivals(clock)
+    idx = queue.popleft()
+    p = processes[idx]
 
-        if not ready:
-            # CPU idle: fast-forward to the next unqueued arrival.
-            next_arr = min(p.arrival for p in processes if p.pid not in enqueued)
-            timeline.append(("IDLE", clock, next_arr))
-            clock = next_arr
-            enqueue_arrivals(clock)
+    if p['first_start'] == -1:
+        p['first_start'] = current_time
+        p['rt'] = current_time - p['at']
 
-        proc = ready.popleft()
-        if proc.first_start == -1:
-            proc.first_start = clock
+    slice_time = min(quantum, p['remaining_bt'])
+    p['remaining_bt'] -= slice_time
+    current_time += slice_time
 
-        run        = min(quantum, proc.remaining)
-        seg_start  = clock
-        clock     += run
-        proc.remaining -= run
+    # Critical: Enqueue new arrivals BEFORE requeuing preempted process
+    for i, other in enumerate(processes):
+        if not in_queue[i] and other['at'] <= current_time and other['remaining_bt'] > 0:
+            queue.append(i)
+            in_queue[i] = True
 
-        # Each quantum is its own tuple — do NOT merge adjacent same-process
-        # entries.  Every entry represents one time slice; merging would hide
-        # the quantum boundaries and make preemption invisible in the chart.
-        timeline.append((proc.pid, seg_start, clock))
+    if p['remaining_bt'] > 0:
+        queue.append(idx)
+    else:
+        p['ct'] = current_time
+        p['tat'] = p['ct'] - p['at']
+        p['wt'] = p['tat'] - p['bt']
 
-        if proc.remaining == 0:
-            proc.completion = clock
-            proc.turnaround = proc.completion - proc.arrival
-            proc.waiting    = proc.turnaround  - proc.burst
-            proc.response   = proc.first_start - proc.arrival
-            done += 1
-            # Enqueue processes that arrived while this quantum was running.
-            enqueue_arrivals(clock)
-        else:
-            # CRITICAL: enqueue new arrivals FIRST, then the preempted process.
-            # A process with arrival == clock arrived at the quantum-expiry
-            # instant and must go ahead of the process just preempted.
-            # Getting this backwards is the most common Round Robin bug.
-            enqueue_arrivals(clock)
-            ready.append(proc)   # preempted process goes to the back
+        completed += 1
+        total_tat += p['tat']
+        total_wt += p['wt']
 
-    return timeline
+# 3. Print Results
+print("\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT")
+for p in processes:
+    print(f"{p['id']}\\t{p['at']}\\t{p['bt']}\\t{p['ct']}\\t{p['tat']}\\t{p['wt']}\\t{p['rt']}")
 
+print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
+print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-def report(processes: list[Process], timeline: list[tuple[str, int, int]]) -> None:
-    n = len(processes)
-    busy            = sum(p.burst      for p in processes)
-    first_arrival   = min(p.arrival    for p in processes)
-    last_completion = max(p.completion for p in processes)
-    total_time      = last_completion - first_arrival
+  typescript: `import * as readline from 'readline';
 
-    print("PID  AT  BT  CT  TAT  WT  RT")
-    for p in sorted(processes, key=lambda x: x.pid):
-        print(f"{p.pid:<4} {p.arrival:3} {p.burst:3} {p.completion:3} "
-              f"{p.turnaround:4} {p.waiting:3} {p.response:3}")
-
-    print()
-    print("Gantt:", " | ".join(f"{pid} {s}-{e}" for pid, s, e in timeline))
-    print(f"Average WT  : {sum(p.waiting    for p in processes) / n:.2f}")
-    print(f"Average TAT : {sum(p.turnaround for p in processes) / n:.2f}")
-    print(f"Average RT  : {sum(p.response   for p in processes) / n:.2f}")
-    print(f"CPU busy    : {busy}")
-    print(f"CPU idle    : {total_time - busy}")
-    print(f"CPU util    : {100 * busy / total_time:.2f}%")
-
-
-if __name__ == "__main__":
-    demo = [
-        Process("P1", arrival=0, burst=8),
-        Process("P2", arrival=1, burst=4),
-        Process("P3", arrival=2, burst=2),
-        Process("P4", arrival=3, burst=6),
-    ]
-    report(demo, round_robin(demo, quantum=QUANTUM))`,
-
-  typescript: `/**
- * Round Robin (RR) — preemptive with a fixed time quantum.
- * Rule: each process runs for at most one quantum, then goes to the BACK
- * of the FIFO ready queue.
- *
- * CRITICAL correctness rule: when a process ARRIVES at the exact instant
- * a quantum expires, that arriving process must be enqueued BEFORE the
- * preempted process is re-queued.  Reversing this order causes the
- * just-preempted process to run again immediately, violating fairness.
- * This is the most common bug in student Round Robin implementations.
- *
- * The ready queue is an explicit FIFO array (push/shift); no selection
- * key is used.
+/**
+ * Round Robin (RR) Scheduling
+ * Rule: Execute processes using a fixed time quantum in cyclic FIFO order.
  */
 
-const QUANTUM = 2; // time slices per turn
-
-interface ProcessInput {
+interface Process {
   id: string;
-  arrivalTime: number;
-  burstTime: number;
+  at: number;
+  bt: number;
+  remainingBt: number;
+  firstStart: number;
+  ct?: number;
+  tat?: number;
+  wt?: number;
+  rt?: number;
 }
 
-interface GanttBlock {
-  processId: string; // "IDLE" marks a CPU gap
-  startTime: number;
-  endTime: number;
-}
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
 
-interface ProcessResult extends ProcessInput {
-  completionTime: number;
-  turnaroundTime: number;
-  waitingTime: number;
-  responseTime: number;
-}
+const ask = (q: string): Promise<string> =>
+  new Promise((resolve) => rl.question(q, resolve));
 
-interface SchedulingResult {
-  gantt: GanttBlock[];
-  processes: ProcessResult[];
-  averageWaitingTime: number;
-  averageTurnaroundTime: number;
-  averageResponseTime: number;
-  cpuBusyTime: number;
-  cpuIdleTime: number;
-  cpuUtilization: number;
-}
+async function main() {
+  const nStr = await ask('Enter number of processes: ');
+  const n = parseInt(nStr.trim(), 10);
+  const processes: Process[] = [];
 
-function roundRobin(
-  input: ProcessInput[],
-  quantum: number = QUANTUM,
-): SchedulingResult {
-  // Sort by arrival so enqueue loops add processes in chronological order.
-  const byArrival = [...input].sort(
-    (a, b) => a.arrivalTime - b.arrivalTime || a.id.localeCompare(b.id),
-  );
-
-  const state = new Map<string, { remaining: number; firstStart: number }>(
-    input.map((p) => [p.id, { remaining: p.burstTime, firstStart: -1 }]),
-  );
-  const enqueued = new Set<string>();
-  const ready: ProcessInput[] = []; // FIFO queue: push to end, shift from front
-  const gantt: GanttBlock[] = [];
-  const processes: ProcessResult[] = [];
-  let clock = 0;
-  let done = 0;
-  const n = input.length;
-
-  /** Enqueue all unqueued processes that have arrived by 'upTo'. */
-  function enqueueArrivals(upTo: number): void {
-    for (const p of byArrival) {
-      if (!enqueued.has(p.id) && p.arrivalTime <= upTo) {
-        ready.push(p);
-        enqueued.add(p.id);
-      }
-    }
+  for (let i = 0; i < n; i++) {
+    const input = await ask(\`Process \${i + 1} (ID Arrival Burst): \`);
+    const [id, atStr, btStr] = input.trim().split(/\\s+/);
+    const bt = parseInt(btStr, 10);
+    processes.push({
+      id,
+      at: parseInt(atStr, 10),
+      bt,
+      remainingBt: bt,
+      firstStart: -1,
+    });
   }
 
-  while (done < n) {
-    enqueueArrivals(clock);
+  const qStr = await ask('Enter Time Quantum: ');
+  const quantum = parseInt(qStr.trim(), 10);
+  rl.close();
 
-    if (ready.length === 0) {
-      // CPU idle: fast-forward to the next unqueued arrival.
-      let nextArrival = Infinity;
-      for (const p of input) {
-        if (!enqueued.has(p.id) && p.arrivalTime < nextArrival)
-          nextArrival = p.arrivalTime;
+  // Sort initially by arrival time
+  processes.sort((a, b) => a.at - b.at);
+
+  const queue: number[] = [];
+  const inQueue: boolean[] = new Array(n).fill(false);
+
+  let currentTime = processes[0].at;
+  queue.push(0);
+  inQueue[0] = true;
+
+  let completed = 0;
+  let totalTat = 0;
+  let totalWt = 0;
+
+  while (completed < n) {
+    if (queue.length === 0) {
+      for (let i = 0; i < n; i++) {
+        if (processes[i].remainingBt > 0) {
+          currentTime = processes[i].at;
+          queue.push(i);
+          inQueue[i] = true;
+          break;
+        }
       }
-      if (!isFinite(nextArrival)) break;
-      gantt.push({ processId: 'IDLE', startTime: clock, endTime: nextArrival });
-      clock = nextArrival;
-      enqueueArrivals(clock);
     }
 
-    const proc = ready.shift()!;
-    const s = state.get(proc.id)!;
-    if (s.firstStart === -1) s.firstStart = clock;
+    const idx = queue.shift()!;
+    const p = processes[idx];
 
-    const run = Math.min(quantum, s.remaining);
-    const segStart = clock;
-    clock += run;
-    s.remaining -= run;
+    if (p.firstStart === -1) {
+      p.firstStart = currentTime;
+      p.rt = currentTime - p.at;
+    }
 
-    // Each quantum is its own Gantt block — do NOT merge adjacent same-process
-    // blocks. Every block represents one time slice; merging would make the
-    // quantum boundaries and preemption points invisible in the chart.
-    gantt.push({ processId: proc.id, startTime: segStart, endTime: clock });
+    const slice = Math.min(quantum, p.remainingBt);
+    p.remainingBt -= slice;
+    currentTime += slice;
 
-    if (s.remaining === 0) {
-      processes.push({
-        id: proc.id,
-        arrivalTime: proc.arrivalTime,
-        burstTime: proc.burstTime,
-        completionTime: clock,
-        turnaroundTime: clock - proc.arrivalTime,
-        waitingTime: clock - proc.arrivalTime - proc.burstTime,
-        responseTime: s.firstStart - proc.arrivalTime,
-      });
-      done += 1;
-      // Enqueue processes that arrived while this quantum was running.
-      enqueueArrivals(clock);
+    // Enqueue newly arrived processes first
+    for (let i = 0; i < n; i++) {
+      if (!inQueue[i] && processes[i].at <= currentTime && processes[i].remainingBt > 0) {
+        queue.push(i);
+        inQueue[i] = true;
+      }
+    }
+
+    // Then requeue the preempted process if still unfinished
+    if (p.remainingBt > 0) {
+      queue.push(idx);
     } else {
-      // CRITICAL: enqueue new arrivals FIRST, then the preempted process.
-      // Any process with arrivalTime === clock arrived at the quantum-expiry
-      // instant and must enter the queue BEFORE the process just preempted.
-      // Getting this backwards is the most common Round Robin bug.
-      enqueueArrivals(clock);
-      ready.push(proc); // preempted process goes to the back
+      p.ct = currentTime;
+      p.tat = p.ct - p.at;
+      p.wt = p.tat - p.bt;
+
+      completed++;
+      totalTat += p.tat;
+      totalWt += p.wt;
     }
   }
 
-  return summarise(input, gantt, processes);
+  console.log('\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT');
+  for (const p of processes) {
+    console.log(\`\${p.id}\\t\${p.at}\\t\${p.bt}\\t\${p.ct}\\t\${p.tat}\\t\${p.wt}\\t\${p.rt}\`);
+  }
+  console.log(\`\\nAverage Turnaround Time: \${(totalTat / n).toFixed(2)}\`);
+  console.log(\`Average Waiting Time   : \${(totalWt / n).toFixed(2)}\`);
 }
 
-/** Derives every reported figure from the emitted timeline. */
-function summarise(
-  input: ProcessInput[],
-  gantt: GanttBlock[],
-  processes: ProcessResult[],
-): SchedulingResult {
-  const n = processes.length;
-  const startTime = Math.min(...input.map((p) => p.arrivalTime));
-  const endTime = Math.max(...gantt.map((b) => b.endTime));
-  const totalTime = endTime - startTime;
-
-  const cpuBusyTime = gantt
-    .filter((b) => b.processId !== 'IDLE')
-    .reduce((sum, b) => sum + (b.endTime - b.startTime), 0);
-
-  const mean = (pick: (p: ProcessResult) => number): number =>
-    Math.round((processes.reduce((s, p) => s + pick(p), 0) / n) * 100) / 100;
-
-  return {
-    gantt,
-    processes,
-    averageWaitingTime: mean((p) => p.waitingTime),
-    averageTurnaroundTime: mean((p) => p.turnaroundTime),
-    averageResponseTime: mean((p) => p.responseTime),
-    cpuBusyTime,
-    cpuIdleTime: totalTime - cpuBusyTime,
-    cpuUtilization: Math.round((cpuBusyTime / totalTime) * 10000) / 100,
-  };
-}
-
-// -- Demo ------------------------------------------------
-const demo: ProcessInput[] = [
-  { id: 'P1', arrivalTime: 0, burstTime: 8 },
-  { id: 'P2', arrivalTime: 1, burstTime: 4 },
-  { id: 'P3', arrivalTime: 2, burstTime: 2 },
-  { id: 'P4', arrivalTime: 3, burstTime: 6 },
-];
-
-const result = roundRobin(demo, QUANTUM);
-console.table(result.processes);
-console.log('Average WT :', result.averageWaitingTime);
-console.log('CPU util   :', result.cpuUtilization + '%');`,
+main();`,
 };

@@ -7,6 +7,7 @@
 import {
   BookOpen,
   CircuitBoard,
+  Code2,
   GitCompareArrows,
   Info,
   LayoutDashboard,
@@ -14,7 +15,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-export type PageId = 'home' | 'visualizer' | 'compare' | 'algorithms' | 'learn' | 'about';
+export type PageId = 'home' | 'visualizer' | 'compare' | 'algorithms' | 'code' | 'learn' | 'about';
 
 interface NavItem {
   id: PageId;
@@ -28,8 +29,9 @@ const NAV: NavItem[] = [
   { id: 'visualizer', label: 'Visualizer', icon: <CircuitBoard className="h-4 w-4" />, code: '01' },
   { id: 'compare', label: 'Compare', icon: <GitCompareArrows className="h-4 w-4" />, code: '02' },
   { id: 'algorithms', label: 'Algorithms', icon: <ListTree className="h-4 w-4" />, code: '03' },
-  { id: 'learn', label: 'Learn', icon: <BookOpen className="h-4 w-4" />, code: '04' },
-  { id: 'about', label: 'About', icon: <Info className="h-4 w-4" />, code: '05' },
+  { id: 'code', label: 'Code Examples', icon: <Code2 className="h-4 w-4" />, code: '04' },
+  { id: 'learn', label: 'Learn', icon: <BookOpen className="h-4 w-4" />, code: '05' },
+  { id: 'about', label: 'About', icon: <Info className="h-4 w-4" />, code: '06' },
 ];
 
 interface SidebarProps {

@@ -13,6 +13,7 @@ import { Home } from './pages/Home';
 import { Visualizer } from './pages/Visualizer';
 import { Compare } from './pages/Compare';
 import { Algorithms } from './pages/Algorithms';
+import { CodeExamples } from './pages/CodeExamples';
 import { Learn } from './pages/Learn';
 import { About } from './pages/About';
 import type { AlgorithmId, ProcessInput } from './types/scheduling';
@@ -72,6 +73,15 @@ export default function App() {
     [navigate],
   );
 
+  /** Jump into Code Examples with a chosen algorithm preselected. */
+  const viewCode = useCallback(
+    (id: AlgorithmId) => {
+      setAlgorithm(id);
+      navigate('code');
+    },
+    [navigate],
+  );
+
   return (
     <div className="flex min-h-full">
       <Sidebar page={page} onNavigate={navigate} />
@@ -81,9 +91,12 @@ export default function App() {
 
         <main className="min-w-0 flex-1 p-3 sm:p-5 lg:p-6">
           {page === 'home' && <Home onNavigate={navigate} />}
-          {page === 'visualizer' && <Visualizer lab={lab} />}
+          {page === 'visualizer' && <Visualizer lab={lab} onNavigate={navigate} />}
           {page === 'compare' && <Compare lab={lab} />}
-          {page === 'algorithms' && <Algorithms onTry={tryAlgorithm} selected={algorithm} />}
+          {page === 'algorithms' && (
+            <Algorithms onTry={tryAlgorithm} onViewCode={viewCode} selected={algorithm} />
+          )}
+          {page === 'code' && <CodeExamples lab={lab} onNavigate={navigate} />}
           {page === 'learn' && <Learn lab={lab} />}
           {page === 'about' && <About onNavigate={navigate} />}
         </main>
