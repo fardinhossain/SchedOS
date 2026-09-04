@@ -90,7 +90,9 @@ export default function App() {
         <MobileNav page={page} onNavigate={navigate} />
 
         <main className="min-w-0 flex-1 p-3 sm:p-5 lg:p-6">
-          {page === 'home' && <Home onNavigate={navigate} />}
+          {page === 'home' && (
+            <Home onNavigate={navigate} onSelectAlgorithm={setAlgorithm} />
+          )}
           {page === 'visualizer' && <Visualizer lab={lab} onNavigate={navigate} />}
           {page === 'compare' && <Compare lab={lab} />}
           {page === 'algorithms' && (
