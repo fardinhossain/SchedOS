@@ -1,9 +1,9 @@
 /**
  * Home / Lab Console.
  *
- * Showcases the SchedOS CPU scheduling laboratory with a central command
- * heading and CTAs, surrounded by interactive, floating, tilted, and layered
- * Algorithm UI cards/screenshots representing real engine execution.
+ * Top section: Preserved retro-future terminal entrance with live animated CPU die.
+ * Bottom section: Replaces the static dataset table/panels with a modern interactive
+ * showcase of floating, tilted, and layered Algorithm UI cards around central CTAs.
  */
 import { useMemo } from 'react';
 import {
@@ -30,7 +30,7 @@ interface HomeProps {
   onSelectAlgorithm?: (id: AlgorithmId) => void;
 }
 
-/** The section doors along the bottom rail. */
+/** The section doors along the bottom rail of the hero door. */
 const DOORS: { page: PageId; code: string; label: string; icon: React.ReactNode }[] = [
   { page: 'visualizer', code: '01', label: 'Visualizer', icon: <CircuitBoard className="h-4 w-4" /> },
   { page: 'compare', code: '02', label: 'Compare', icon: <GitCompareArrows className="h-4 w-4" /> },
@@ -52,110 +52,175 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
 
   return (
     <div className="space-y-6">
-      {/* ── Top Machine Status Bar ────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border border-ink bg-ink px-4 py-2 text-xs">
-        <span className="label flex items-center gap-2 text-crt">
-          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-crt blink" />
-          PROCESS LAB v1.0 · OPERATING SYSTEM LABORATORY
-        </span>
-        <div className="flex items-center gap-3">
-          <span className="label hidden text-muted-2 sm:inline">
-            8 Algorithms · Client-Side · 0 Backend · 537 Tests Passed
+      {/* ── TOP OF HERO SECTION: PREVIOUS ICONIC STYLE ────────── */}
+      <section
+        className="scanlines relative flex min-h-[calc(100dvh-6.5rem)] flex-col border border-ink bg-ink lg:min-h-[calc(100dvh-5.5rem)]"
+        aria-label="SchedOS entrance"
+      >
+        {/* Top rail — machine identification */}
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-ink-3 px-4 py-2">
+          <span className="label flex items-center gap-2 text-crt">
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-crt blink" />
+            Process Lab v1.0
           </span>
-          <span className="border border-crt/40 bg-crt/10 px-2 py-0.5 text-[10px] font-bold text-crt">
-            READY
+          <span className="label hidden text-muted-2 sm:inline">
+            8 Algorithms · Client-Side · No Backend
           </span>
         </div>
-      </div>
 
-      {/* ── Hero Center: Heading, CTAs & Layered Algorithm Showcase ── */}
+        {/* Centre — wordmark + live CPU die schematic */}
+        <div className="grid flex-1 items-center gap-6 p-4 sm:p-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-stretch lg:gap-10">
+          {/* Wordmark block stays vertically centred while the die stretches. */}
+          <div className="flex min-w-0 flex-col justify-center">
+            <h1 className="tabular text-[3.25rem] leading-[0.88] font-bold tracking-tighter text-bone sm:text-7xl lg:text-8xl">
+              SCHED<span className="text-crt">OS</span>
+            </h1>
+
+            {/* The whole pitch, in one line. */}
+            <p className="label mt-4 text-machine sm:text-xs">
+              Visualize. Simulate. Understand.
+            </p>
+
+            <div className="mt-7 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onNavigate('visualizer')}
+                className="group flex items-center gap-2 border border-crt bg-crt px-5 py-3 text-sm font-bold text-ink transition-colors hover:bg-crt-dim"
+              >
+                [ INITIALIZE SIMULATION ]
+                <ArrowRight
+                  aria-hidden="true"
+                  className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Live CPU die schematic — the hero's real content */}
+          <HeroAnimation colors={heroColors} large />
+        </div>
+
+        {/* Bottom rail of hero door — section doors */}
+        <nav
+          aria-label="Enter a section"
+          className="shrink-0 border-t border-ink-3"
+        >
+          <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+            {DOORS.map((door) => (
+              <li key={door.page} className="border-r border-b border-ink-3 last:border-r-0">
+                <button
+                  type="button"
+                  onClick={() => onNavigate(door.page)}
+                  className="group relative flex w-full items-center gap-2.5 px-3 py-3 text-left transition-colors hover:bg-ink-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-0 left-0 h-full w-[3px] bg-transparent transition-colors group-hover:bg-crt"
+                  />
+                  <span aria-hidden="true" className="text-muted-2 transition-colors group-hover:text-crt">
+                    {door.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="tabular block text-[10px] text-muted-2">{door.code}</span>
+                    <span className="block truncate text-sm font-semibold text-bone/85 transition-colors group-hover:text-bone">
+                      {door.label}
+                    </span>
+                  </span>
+                  <ArrowRight
+                    aria-hidden="true"
+                    className="h-3 w-3 shrink-0 text-muted-2 transition-all group-hover:translate-x-0.5 group-hover:text-crt"
+                  />
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {/* Scroll cue */}
+          <p className="label flex items-center justify-center gap-1.5 py-2 text-muted-2">
+            <ChevronDown aria-hidden="true" className="h-3 w-3" />
+            Scroll for live algorithm instruments and showcase
+          </p>
+        </nav>
+      </section>
+
+      {/* ── BOTTOM OF HERO: FLOATING, TILTED & LAYERED ALGORITHM UI CARDS ── */}
       <section
-        className="scanlines relative overflow-hidden border border-ink bg-ink p-4 sm:p-8 lg:p-10"
-        aria-label="SchedOS laboratory entrance"
+        className="scanlines relative border border-ink bg-ink p-4 sm:p-8 lg:p-10"
+        aria-label="Algorithm laboratory showcase"
       >
-        {/* Background blueprint grid watermark */}
+        {/* Background blueprint grid */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          className="pointer-events-none absolute inset-0 opacity-[0.035]"
           style={{
             backgroundImage:
               'radial-gradient(var(--color-crt) 1px, transparent 1px), radial-gradient(var(--color-crt) 1px, transparent 1px)',
-            backgroundSize: '32px 32px',
+            backgroundSize: '24px 24px',
           }}
         />
 
-        {/* ── Central Heading & Action Row ────────────────────── */}
-        <div className="relative z-10 mx-auto max-w-4xl text-center">
-          <div className="inline-flex items-center gap-2 border border-crt/30 bg-crt/10 px-3 py-1 text-[11px] font-semibold text-crt mb-4">
+        {/* ── Central Heading & CTAs for the Showcase ──────────── */}
+        <div className="relative z-10 mx-auto max-w-3xl text-center">
+          <div className="inline-flex items-center gap-2 border border-crt/40 bg-crt/10 px-3 py-1 text-[11px] font-semibold text-crt mb-3">
             <span className="h-1.5 w-1.5 rounded-full bg-crt blink" />
-            EDUCATIONAL CPU SCHEDULING LAB
+            ALGORITHM INSTRUMENTS &amp; LIVE BENCHMARKS
           </div>
 
-          <h1 className="tabular text-5xl font-bold tracking-tight text-bone sm:text-7xl lg:text-8xl leading-none">
-            SCHED<span className="text-crt">OS</span>
-          </h1>
+          <h2 className="tabular text-3xl font-bold tracking-tight text-bone sm:text-5xl">
+            INTERACTIVE <span className="text-crt">ALGORITHM</span> SHOWCASE
+          </h2>
 
-          <p className="label mt-3 text-xs tracking-widest text-machine sm:text-sm font-semibold">
-            VISUALIZE. SIMULATE. UNDERSTAND.
+          <p className="label mt-2 text-xs tracking-widest text-machine sm:text-sm">
+            TILTED INSTRUMENTS · LIVE TIMELINES · DYNAMIC QUEUES
           </p>
 
-          <p className="mx-auto mt-3 max-w-2xl text-xs sm:text-sm leading-relaxed text-bone/70">
-            An interactive simulator for operating system scheduling algorithms. Observe real-time
-            dispatching, analyze Gantt timelines, inspect ready queues, and benchmark algorithm
-            performance live in your browser.
+          <p className="mx-auto mt-3 max-w-2xl text-xs sm:text-sm leading-relaxed text-bone/75">
+            Preview the scheduling engine across six interactive instrument cards. Inspect preemption
+            events, Round Robin quantum slicing, SJF optimal waiting times, and side-by-side comparative
+            benchmarks.
           </p>
 
           {/* Central CTAs */}
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
               onClick={() => onNavigate('visualizer')}
-              className="group flex items-center gap-2 border border-crt bg-crt px-5 py-2.5 text-xs sm:text-sm font-bold text-ink transition-all hover:bg-crt-dim hover:shadow-lg hover:shadow-crt/25"
+              className="group flex items-center gap-2 border border-crt bg-crt px-4 py-2 text-xs sm:text-sm font-bold text-ink transition-all hover:bg-crt-dim hover:shadow-lg hover:shadow-crt/25"
             >
-              <Play className="h-4 w-4 fill-current" />
-              [ INITIALIZE SIMULATION ]
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              <Play className="h-3.5 w-3.5 fill-current" />
+              [ OPEN FULL SIMULATOR ]
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </button>
 
             <button
               type="button"
               onClick={() => onNavigate('compare')}
-              className="flex items-center gap-2 border border-ink-3 bg-ink-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-bone transition-colors hover:border-bone/50 hover:bg-ink-3"
+              className="flex items-center gap-2 border border-ink-3 bg-ink-2 px-3.5 py-2 text-xs sm:text-sm font-semibold text-bone transition-colors hover:border-bone/40 hover:bg-ink-3"
             >
-              <GitCompareArrows className="h-4 w-4 text-electric" />
-              Compare Policies
+              <GitCompareArrows className="h-3.5 w-3.5 text-electric" />
+              Compare 8 Policies
             </button>
 
             <button
               type="button"
               onClick={() => onNavigate('code')}
-              className="flex items-center gap-2 border border-ink-3 bg-ink-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-bone transition-colors hover:border-bone/50 hover:bg-ink-3"
+              className="flex items-center gap-2 border border-ink-3 bg-ink-2 px-3.5 py-2 text-xs sm:text-sm font-semibold text-bone transition-colors hover:border-bone/40 hover:bg-ink-3"
             >
-              <Code2 className="h-4 w-4 text-machine" />
-              Code Examples
+              <Code2 className="h-3.5 w-3.5 text-machine" />
+              Exam Code Reference
             </button>
-          </div>
-
-          {/* Feature Badges */}
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[11px] text-muted-2">
-            <span className="border border-ink-3 bg-ink-2/60 px-2.5 py-0.5">8 Algorithms</span>
-            <span className="border border-ink-3 bg-ink-2/60 px-2.5 py-0.5">100% Client-Side</span>
-            <span className="border border-ink-3 bg-ink-2/60 px-2.5 py-0.5">24 Code Implementations</span>
-            <span className="border border-ink-3 bg-ink-2/60 px-2.5 py-0.5 text-crt">
-              Deterministic Tie-Breaking
-            </span>
           </div>
         </div>
 
-        {/* ── Multiple Floating, Tilted, Layered Algorithm UI Cards ── */}
-        <div className="relative z-10 mt-10 sm:mt-12">
+        {/* ── Multiple Floating, Tilted, Layered Cards ────────── */}
+        <div className="relative z-10 mt-8 sm:mt-10">
           <div className="mb-3 flex items-center justify-between border-b border-ink-3 pb-2">
-            <span className="label text-muted-2 flex items-center gap-1.5">
+            <span className="label text-muted-2 flex items-center gap-1.5 text-[10px]">
               <Sparkles className="h-3 w-3 text-crt" />
-              Interactive Algorithm Lab Screenshots & Instruments
+              Algorithm UI Cards &amp; Screenshots (Hover to un-tilt · Click to launch)
             </span>
-            <span className="label text-[10px] text-muted-2 hidden sm:inline">
-              Hover to un-tilt · Click any card to launch simulation
+            <span className="label text-[9px] text-crt hidden sm:inline">
+              LIVE ENGINE SIMULATIONS
             </span>
           </div>
 
@@ -187,7 +252,7 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
 
               {/* Mini Gantt Chart */}
               <div className="mt-3">
-                <p className="label text-[9px] text-muted-2 mb-1">Timeline &amp; Slices</p>
+                <p className="label text-[9px] text-muted-2 mb-1">Gantt Timeline</p>
                 <div className="flex h-6 w-full overflow-hidden border border-ink-3 text-[10px] font-bold text-ink">
                   <div className="flex items-center justify-center bg-signal" style={{ width: '12%' }} title="P1: 0-1">
                     P1
@@ -234,7 +299,7 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
               <div className="mt-2.5 flex items-center justify-between text-[10px] text-muted-2 group-hover:text-crt">
                 <span>Shortest Remaining Time First</span>
                 <span className="flex items-center gap-1 font-semibold">
-                  Open Lab <ArrowRight className="h-3 w-3" />
+                  Launch Visualizer <ArrowRight className="h-3 w-3" />
                 </span>
               </div>
             </div>
@@ -313,7 +378,7 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
               <div className="mt-2.5 flex items-center justify-between text-[10px] text-muted-2 group-hover:text-ink">
                 <span>Fair time-sliced cyclic order</span>
                 <span className="flex items-center gap-1 font-semibold">
-                  Open Lab <ArrowRight className="h-3 w-3" />
+                  Launch Visualizer <ArrowRight className="h-3 w-3" />
                 </span>
               </div>
             </div>
@@ -396,7 +461,7 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
               <div className="mt-2.5 flex items-center justify-between text-[10px] text-muted-2 group-hover:text-crt">
                 <span>Minimum cumulative waiting</span>
                 <span className="flex items-center gap-1 font-semibold">
-                  Open Lab <ArrowRight className="h-3 w-3" />
+                  Launch Visualizer <ArrowRight className="h-3 w-3" />
                 </span>
               </div>
             </div>
@@ -480,12 +545,12 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
               <div className="mt-2.5 flex items-center justify-between text-[10px] text-muted-2 group-hover:text-ink">
                 <span>Immediate high-priority override</span>
                 <span className="flex items-center gap-1 font-semibold">
-                  Open Lab <ArrowRight className="h-3 w-3" />
+                  Launch Visualizer <ArrowRight className="h-3 w-3" />
                 </span>
               </div>
             </div>
 
-            {/* ── CARD 5: Comparative Matrix Benchmark ───────────── */}
+            {/* ── CARD 5: Comparative Benchmark Matrix ───────────── */}
             <div
               onClick={() => onNavigate('compare')}
               role="button"
@@ -560,7 +625,7 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
               </div>
             </div>
 
-            {/* ── CARD 6: Live CPU Die & Execution Registers ─────── */}
+            {/* ── CARD 6: CPU Hardware Registers & Telemetry ─────── */}
             <div
               onClick={() => onNavigate('visualizer')}
               role="button"
@@ -602,9 +667,14 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
                 </div>
               </div>
 
-              {/* Mini live die view */}
-              <div className="mt-2.5 overflow-hidden rounded-none border border-ink-3 bg-black/50 p-1">
-                <HeroAnimation colors={heroColors} />
+              {/* Instruction cycle summary */}
+              <div className="mt-3 border-t border-ink-3 pt-2 grid grid-cols-2 gap-2 text-[10px] font-mono">
+                <div className="text-muted-2">
+                  Queued: <span className="text-bone font-bold">3 processes</span>
+                </div>
+                <div className="text-muted-2">
+                  Completed: <span className="text-crt font-bold">2 processes</span>
+                </div>
               </div>
 
               <div className="mt-2.5 flex items-center justify-between text-[10px] text-muted-2 group-hover:text-crt">
@@ -616,44 +686,6 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
             </div>
           </div>
         </div>
-
-        {/* ── Section Doors Navigation Rail ───────────────────── */}
-        <nav aria-label="Enter a section" className="mt-10 border-t border-ink-3 pt-6">
-          <p className="label text-muted-2 mb-3 text-center">Module Fast Gates</p>
-          <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-            {DOORS.map((door) => (
-              <li key={door.page}>
-                <button
-                  type="button"
-                  onClick={() => onNavigate(door.page)}
-                  className="group relative flex w-full items-center gap-2 border border-ink-3 bg-ink-2 px-3 py-2.5 text-left transition-colors hover:border-crt hover:bg-ink-3"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="text-muted-2 transition-colors group-hover:text-crt"
-                  >
-                    {door.icon}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="tabular block text-[9px] text-muted-2">{door.code}</span>
-                    <span className="block truncate text-xs font-semibold text-bone/85 transition-colors group-hover:text-bone">
-                      {door.label}
-                    </span>
-                  </span>
-                  <ArrowRight
-                    aria-hidden="true"
-                    className="h-3 w-3 shrink-0 text-muted-2 transition-all group-hover:translate-x-0.5 group-hover:text-crt"
-                  />
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <p className="label flex items-center justify-center gap-1.5 pt-4 text-muted-2 text-[10px]">
-            <ChevronDown aria-hidden="true" className="h-3 w-3" />
-            Scroll for Suggested Walkthrough &amp; Demonstration Guide
-          </p>
-        </nav>
       </section>
 
       {/* ── Suggested demonstration path ─────────────────────── */}
