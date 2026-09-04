@@ -143,7 +143,7 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
         </nav>
       </section>
 
-      {/* ── BOTTOM OF HERO: FLOATING, TILTED & LAYERED ALGORITHM UI CARDS ── */}
+      {/* ── BOTTOM PART: FLOATING, TILTED & LAYERED ALGORITHM UI CARDS ── */}
       <section
         className="scanlines relative border border-ink bg-ink p-4 sm:p-8 lg:p-10"
         aria-label="Algorithm laboratory showcase"
@@ -159,7 +159,7 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
           }}
         />
 
-        {/* ── Central Heading & CTAs for the Showcase ──────────── */}
+        {/* Central Heading & CTAs for the Showcase */}
         <div className="relative z-10 mx-auto max-w-3xl text-center">
           <div className="inline-flex items-center gap-2 border border-crt/40 bg-crt/10 px-3 py-1 text-[11px] font-semibold text-crt mb-3">
             <span className="h-1.5 w-1.5 rounded-full bg-crt blink" />
@@ -212,7 +212,7 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
           </div>
         </div>
 
-        {/* ── Multiple Floating, Tilted, Layered Cards ────────── */}
+        {/* Multiple Floating, Tilted, Layered Cards */}
         <div className="relative z-10 mt-8 sm:mt-10">
           <div className="mb-3 flex items-center justify-between border-b border-ink-3 pb-2">
             <span className="label text-muted-2 flex items-center gap-1.5 text-[10px]">
