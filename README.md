@@ -63,7 +63,7 @@ src/
 **The Gantt timeline is the single source of truth.** Algorithms emit a timeline; `metrics.ts`
 then derives completion, turnaround, waiting and response times *from that timeline*. No
 algorithm computes its own metrics. This makes the classic "chart disagrees with the table" bug
-structurally impossible rather than merely unlikely.
+structurally impossible rather than merely unlikely..
 
 ---
 
