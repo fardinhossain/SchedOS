@@ -9,7 +9,7 @@
  * instead, which is far less confusing during a demonstration.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Code2, Play, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 import type { LabState } from '../App';
 import type { AlgorithmOptions, SchedulingResult } from '../types/scheduling';
 import { IDLE_ID } from '../types/scheduling';
@@ -35,7 +35,7 @@ interface VisualizerProps {
   onNavigate?: (page: PageId) => void;
 }
 
-export function Visualizer({ lab, onNavigate }: VisualizerProps) {
+export function Visualizer({ lab }: VisualizerProps) {
   const { processes, algorithm, timeQuantum, priorityOrder, colors } = lab;
   const meta = ALGORITHM_MAP[algorithm];
 
@@ -103,29 +103,6 @@ export function Visualizer({ lab, onNavigate }: VisualizerProps) {
         code="01"
         title="Visualizer"
         subtitle={`${meta.name} — ${meta.rule}`}
-        actions={
-          <div className="flex items-center gap-2">
-            {onNavigate && (
-              <button
-                type="button"
-                onClick={() => onNavigate('code')}
-                className="flex items-center gap-1.5 border border-ink px-3 py-2 text-xs font-semibold text-text transition-colors hover:bg-ink hover:text-bone"
-              >
-                <Code2 aria-hidden="true" className="h-3.5 w-3.5" />
-                View Code
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={run}
-              disabled={!valid}
-              className="flex items-center gap-1.5 border border-ink bg-crt px-3 py-2 text-xs font-bold text-ink transition-colors hover:bg-crt-dim disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Play aria-hidden="true" className="h-3.5 w-3.5" />
-              Run Simulation
-            </button>
-          </div>
-        }
       />
 
       {/* ── Stale-result banner ──────────────────────────────── */}
