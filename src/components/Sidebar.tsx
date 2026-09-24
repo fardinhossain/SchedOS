@@ -43,10 +43,10 @@ export function Sidebar({ page, onNavigate }: SidebarProps) {
   return (
     <nav
       aria-label="Main sections"
-      className="hidden w-52 shrink-0 flex-col border-r border-ink bg-ink lg:flex"
+      className="sticky top-0 z-30 hidden h-screen w-52 shrink-0 flex-col border-r border-ink bg-ink lg:flex"
     >
       {/* Machine plate */}
-      <div className="scanlines border-b border-ink-3 px-3 py-3.5">
+      <div className="scanlines shrink-0 border-b border-ink-3 px-3 py-3.5">
         <button
           type="button"
           onClick={() => onNavigate('home')}
@@ -60,7 +60,7 @@ export function Sidebar({ page, onNavigate }: SidebarProps) {
         </button>
       </div>
 
-      <ul className="flex-1 py-2">
+      <ul className="thin-scroll flex-1 overflow-y-auto py-2">
         {NAV.map((item) => {
           const active = page === item.id;
           return (
@@ -95,7 +95,7 @@ export function Sidebar({ page, onNavigate }: SidebarProps) {
       </ul>
 
       {/* Status footer — reinforces the instrument metaphor */}
-      <div className="border-t border-ink-3 px-3 py-2.5">
+      <div className="shrink-0 border-t border-ink-3 px-3 py-2.5">
         <p className="tabular flex items-center gap-1.5 text-[10px] text-muted-2">
           <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-crt blink" />
           SYSTEM READY
