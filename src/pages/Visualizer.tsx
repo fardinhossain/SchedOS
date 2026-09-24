@@ -254,9 +254,9 @@ export function Visualizer({ lab }: VisualizerProps) {
           </div>
 
           <Panel
-            title="Process States & Classroom Scratchpad"
+            title="Table Simulation & Process States"
             code="VIS-02"
-            note="Live scratchpad table with burst cuts, followed by ready and completed queues."
+            note="Live simulation table with burst cuts, followed by ready and completed queues."
           >
             {result ? (
               <ReadyQueue

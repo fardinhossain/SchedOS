@@ -82,7 +82,7 @@ export function ReadyQueue({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between px-0.5">
           <div className="flex items-center gap-1.5">
-            <span className="label text-[10px] font-bold text-ink">Classroom Table</span>
+            <span className="label text-[10px] font-bold text-ink">Table Simulation</span>
             <span className="tabular font-mono text-[9px] text-muted-2">
               (cuts: <span className="line-through">5</span> 3 0)
             </span>
