@@ -31,13 +31,6 @@ interface Tooltip {
   y: number;
 }
 
-/** Picks a tick interval that yields readable, round axis labels. */
-function tickStep(span: number, pxPerUnit: number): number {
-  const minPx = 46;
-  const candidates = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000];
-  return candidates.find((c) => c * pxPerUnit >= minPx) ?? Math.ceil(span / 10);
-}
-
 export function GanttChart({
   result,
   colors,
@@ -59,7 +52,7 @@ export function GanttChart({
   const pxPerUnit = useMemo(() => {
     const ideal = compact ? 26 : 42;
     const maxTotal = compact ? 2400 : 4200;
-    return Math.max(compact ? 7 : 11, Math.min(ideal, maxTotal / span));
+    return Math.max(compact ? 16 : 24, Math.min(ideal, maxTotal / span));
   }, [span, compact]);
 
   // Blocks are positioned as a PERCENTAGE of the span rather than in absolute
@@ -67,14 +60,19 @@ export function GanttChart({
   // dead strip after the final block — while long timelines still scroll.
   const totalWidth = span * pxPerUnit;
   const pct = (units: number): string => `${(units / span) * 100}%`;
-  const step = tickStep(span, pxPerUnit);
 
-  const ticks = useMemo(() => {
-    const out: number[] = [];
-    for (let t = startTime; t <= endTime; t += step) out.push(t);
-    if (out[out.length - 1] !== endTime) out.push(endTime);
-    return out;
-  }, [startTime, endTime, step]);
+  // Process boundary points: timeline start time (e.g. 0) and every block's end time.
+  // In classroom Gantt charts, numbers only appear where processes start and end,
+  // showing the exact completion time of each slice (e.g. 0, 2, 5, 8).
+  const boundaryTicks = useMemo(() => {
+    const points = new Set<number>();
+    points.add(startTime);
+    gantt.forEach((b) => {
+      points.add(b.startTime);
+      points.add(b.endTime);
+    });
+    return Array.from(points).sort((a, b) => a - b);
+  }, [gantt, startTime]);
 
   if (!gantt.length) return null;
 
@@ -85,12 +83,12 @@ export function GanttChart({
       <div ref={scrollRef} className="thin-scroll overflow-x-auto overflow-y-hidden pb-1">
         <div style={{ width: totalWidth, minWidth: '100%' }}>
           {/* Start-time markers along the top edge */}
-          <div className="relative h-4" aria-hidden="true">
-            {gantt.map((block) => (
+          <div className="relative h-3" aria-hidden="true">
+            {boundaryTicks.map((t) => (
               <span
-                key={`m-${block.processId}-${block.startTime}`}
-                className="absolute bottom-0 w-px bg-muted"
-                style={{ left: pct(block.startTime - startTime), height: 6 }}
+                key={`m-${t}`}
+                className="absolute bottom-0 w-px bg-rule"
+                style={{ left: pct(t - startTime), height: 5, transform: 'translateX(-50%)' }}
               />
             ))}
           </div>
@@ -194,21 +192,21 @@ export function GanttChart({
           </div>
 
           {/* Time axis */}
-          <div className="relative mt-0 h-7 border-t border-transparent" aria-hidden="true">
-            {ticks.map((t) => {
+          <div className="relative mt-0.5 h-7 border-t border-transparent" aria-hidden="true">
+            {boundaryTicks.map((t) => {
               const left = pct(t - startTime);
               const isLast = t === endTime;
               return (
                 <div
-                  key={t}
+                  key={`bt-${t}`}
                   className="absolute top-0 flex flex-col items-center"
                   style={{ left, transform: 'translateX(-50%)' }}
                 >
-                  <span className="h-1.5 w-px bg-ink/60" />
+                  <span className="h-2 w-px bg-ink/70" />
                   <span
                     className={[
-                      'tabular mt-0.5 text-[10px]',
-                      isLast ? 'font-bold text-signal' : 'text-muted-2',
+                      'tabular mt-0.5 font-mono text-[11px] font-semibold leading-none',
+                      isLast ? 'font-bold text-signal' : 'text-text',
                     ].join(' ')}
                   >
                     {t}
@@ -216,6 +214,19 @@ export function GanttChart({
                 </div>
               );
             })}
+
+            {/* Live playhead indicator on axis if mid-block */}
+            {revealUpTo !== null && visibleEnd < endTime && !boundaryTicks.includes(visibleEnd) && (
+              <div
+                className="pointer-events-none absolute top-0 z-20 flex flex-col items-center"
+                style={{ left: pct(visibleEnd - startTime), transform: 'translateX(-50%)' }}
+              >
+                <span className="h-2 w-0.5 bg-signal" />
+                <span className="tabular mt-0.5 font-mono text-[10px] font-bold text-signal bg-bone/90 px-0.5 leading-none">
+                  {visibleEnd}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
