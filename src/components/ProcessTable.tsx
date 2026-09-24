@@ -168,7 +168,7 @@ export function ProcessTable({
       </div>
 
       {/* Table */}
-      <div className="thin-scroll overflow-x-auto border border-rule">
+      <div className="thin-scroll max-h-56 overflow-y-auto overflow-x-auto border border-rule">
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">
             Editable process input table. Columns: process id, arrival time, burst time
@@ -177,22 +177,22 @@ export function ProcessTable({
               : ''} and remove.
           </caption>
           <thead>
-            <tr className="border-b border-rule bg-bone-3/60">
-              <th scope="col" className="label px-2 py-2 text-muted-2">
+            <tr className="sticky top-0 z-10 border-b border-rule bg-bone-3/95 backdrop-blur-xs">
+              <th scope="col" className="label px-2 py-1.5 text-muted-2">
                 PID
               </th>
-              <th scope="col" className="label px-2 py-2 text-muted-2">
+              <th scope="col" className="label px-2 py-1.5 text-muted-2">
                 Arrival
               </th>
-              <th scope="col" className="label px-2 py-2 text-muted-2">
+              <th scope="col" className="label px-2 py-1.5 text-muted-2">
                 Burst
               </th>
               {showPriority && (
-                <th scope="col" className="label px-2 py-2 text-muted-2">
+                <th scope="col" className="label px-2 py-1.5 text-muted-2">
                   Priority {priorityOrder === 'higher-is-higher' ? '(High=Max)' : '(Low=Max)'}
                 </th>
               )}
-              <th scope="col" className="label px-2 py-2 text-right text-muted-2">
+              <th scope="col" className="label px-2 py-1.5 text-right text-muted-2">
                 <span className="sr-only">Remove</span>
                 Del
               </th>
@@ -201,7 +201,7 @@ export function ProcessTable({
           <tbody>
             {!processes.length && (
               <tr>
-                <td colSpan={showPriority ? 5 : 4} className="px-2 py-6 text-center">
+                <td colSpan={showPriority ? 5 : 4} className="px-2 py-4 text-center">
                   <p className="tabular text-xs text-muted-2">
                     No processes defined. Add one or load an example dataset.
                   </p>
@@ -210,7 +210,7 @@ export function ProcessTable({
             )}
             {processes.map((p, row) => (
               <tr key={row} className="border-b border-rule/60 last:border-b-0 hover:bg-bone-2/60">
-                <td className="px-2 py-1.5">
+                <td className="px-2 py-1">
                   <div className="flex items-center gap-1.5">
                     <span
                       aria-hidden="true"
@@ -226,7 +226,7 @@ export function ProcessTable({
                     />
                   </div>
                 </td>
-                <td className="px-2 py-1.5">
+                <td className="px-2 py-1">
                   <Cell
                     value={p.arrivalTime}
                     numeric
@@ -236,7 +236,7 @@ export function ProcessTable({
                     label={`Arrival time, row ${row + 1}`}
                   />
                 </td>
-                <td className="px-2 py-1.5">
+                <td className="px-2 py-1">
                   <Cell
                     value={p.burstTime}
                     numeric
@@ -247,7 +247,7 @@ export function ProcessTable({
                   />
                 </td>
                 {showPriority && (
-                  <td className="px-2 py-1.5">
+                  <td className="px-2 py-1">
                     <Cell
                       value={p.priority ?? ''}
                       numeric
@@ -258,12 +258,12 @@ export function ProcessTable({
                     />
                   </td>
                 )}
-                <td className="px-2 py-1.5 text-right">
+                <td className="px-2 py-1 text-right">
                   <button
                     type="button"
                     onClick={() => removeProcess(row)}
                     aria-label={`Remove process ${p.id}`}
-                    className="border border-transparent p-1 text-muted-2 transition-colors hover:border-signal hover:text-signal"
+                    className="border border-transparent p-0.5 text-muted-2 transition-colors hover:border-signal hover:text-signal"
                   >
                     <X aria-hidden="true" className="h-3.5 w-3.5" />
                   </button>
@@ -387,7 +387,7 @@ function Cell({
           }
         }}
         className={[
-          'tabular w-full border px-1.5 py-1 text-xs focus:border-ink',
+          'tabular w-full border px-1.5 py-0.5 text-xs focus:border-ink',
           invalid ? 'border-signal bg-signal/10' : 'border-rule bg-bone',
         ].join(' ')}
       />

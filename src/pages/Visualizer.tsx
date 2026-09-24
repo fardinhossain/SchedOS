@@ -8,7 +8,7 @@
  * table never silently invalidates what is on screen — a "stale" banner appears
  * instead, which is far less confusing during a demonstration.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Code2, Play, RefreshCw } from 'lucide-react';
 import type { LabState } from '../App';
 import type { AlgorithmOptions, SchedulingResult } from '../types/scheduling';
@@ -42,6 +42,7 @@ export function Visualizer({ lab, onNavigate }: VisualizerProps) {
   const [result, setResult] = useState<SchedulingResult | null>(null);
   const [ranWith, setRanWith] = useState<string>('');
   const [selectedProcess, setSelectedProcess] = useState<string | null>(null);
+  const simulationRef = useRef<HTMLDivElement>(null);
 
   const issues = useMemo(
     () => validate({ processes, algorithm: meta, timeQuantum }),
@@ -70,6 +71,10 @@ export function Visualizer({ lab, onNavigate }: VisualizerProps) {
       setResult(SCHEDULERS[algorithm](processes, options));
       setRanWith(signature);
       setSelectedProcess(null);
+      setTimeout(() => {
+        simulationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        simulationRef.current?.focus({ preventScroll: true });
+      }, 50);
     } catch (error) {
       // The engine is defensive, but never let a scheduling bug white-screen
       // the whole application during a demonstration (spec §29).
@@ -191,112 +196,116 @@ export function Visualizer({ lab, onNavigate }: VisualizerProps) {
         </Panel>
       </div>
 
-      {/* ── PRIMARY: Gantt chart ─────────────────────────────── */}
-      <Panel
-        title="Gantt Chart — CPU Execution Timeline"
-        code="VIS-01"
-        note={
-          result
-            ? 'Hover or focus a block for its exact span. Click a block to highlight that process everywhere.'
-            : undefined
-        }
-        actions={
-          result ? (
-            <span className="tabular text-[10px] text-muted-2">
-              {result.gantt.length} blocks · t=0 → {result.endTime}
-            </span>
-          ) : undefined
-        }
-      >
-        {result ? (
-          <div className="space-y-3">
-            <GanttChart
-              result={result}
-              colors={colors}
-              revealUpTo={sim.finished ? null : sim.currentTime}
-              selectedProcess={selectedProcess}
-              onSelectProcess={setSelectedProcess}
-            />
-            <GanttLegend
-              ids={processIds}
-              colors={colors}
-              selected={selectedProcess}
-              onSelect={setSelectedProcess}
-              hasIdle={hasIdle}
-            />
-          </div>
-        ) : (
-          <EmptyState
-            title="No simulation loaded"
-            body={
-              valid
-                ? 'Your process set is valid. Press Run Simulation to generate the timeline.'
-                : 'Fix the highlighted input errors below, then run the simulation.'
-            }
-            action={
-              valid ? { label: 'Run Simulation', onClick: run } : undefined
-            }
-          />
-        )}
-      </Panel>
-
-      {/* ── CPU state + transport + log ──────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_minmax(0,1.15fr)]">
-        <div className="space-y-4">
-          <CPUVisualizer
-            frame={sim.frame}
-            colors={colors}
-            totalTime={result?.totalTime ?? 0}
-            startTime={result?.startTime ?? 0}
-            finished={sim.finished && result !== null}
-          />
-          <Panel title="Transport" code="CTL-01">
-            <SimulationControls
-              isRunning={sim.isRunning}
-              canPlay={sim.canPlay}
-              finished={sim.finished}
-              speed={sim.speed}
-              currentTime={sim.currentTime}
-              startTime={result?.startTime ?? 0}
-              endTime={result?.endTime ?? 0}
-              onPlay={sim.play}
-              onPause={sim.pause}
-              onStep={sim.step}
-              onReset={sim.reset}
-              onSkipToEnd={sim.skipToEnd}
-              onSpeed={sim.setSpeed}
-              onSeek={sim.seek}
-            />
-          </Panel>
-        </div>
-
+      {/* ── PRIMARY: Gantt chart & Simulation Display ───────── */}
+      <div ref={simulationRef} tabIndex={-1} className="outline-none space-y-4">
         <Panel
-          title="Process States"
-          code="VIS-02"
-          note="Queue contents at the current clock value."
+          title="Gantt Chart — CPU Execution Timeline"
+          code="VIS-01"
+          note={
+            result
+              ? 'Hover or focus a block for its exact span. Click a block to highlight that process everywhere.'
+              : undefined
+          }
+          actions={
+            result ? (
+              <span className="tabular text-[10px] text-muted-2">
+                {result.gantt.length} blocks · t=0 → {result.endTime}
+              </span>
+            ) : undefined
+          }
         >
           {result ? (
-            <ReadyQueue
-              frame={sim.frame}
-              processes={result.processes}
-              colors={colors}
-              selectedProcess={selectedProcess}
-              onSelectProcess={setSelectedProcess}
-            />
+            <div className="space-y-3">
+              <GanttChart
+                result={result}
+                colors={colors}
+                revealUpTo={sim.finished ? null : sim.currentTime}
+                selectedProcess={selectedProcess}
+                onSelectProcess={setSelectedProcess}
+              />
+              <GanttLegend
+                ids={processIds}
+                colors={colors}
+                selected={selectedProcess}
+                onSelect={setSelectedProcess}
+                hasIdle={hasIdle}
+              />
+            </div>
           ) : (
-            <p className="tabular py-4 text-center text-xs text-muted-2">
-              Run a simulation to populate the queues.
-            </p>
+            <EmptyState
+              title="No simulation loaded"
+              body={
+                valid
+                  ? 'Your process set is valid. Press Run Simulation to generate the timeline.'
+                  : 'Fix the highlighted input errors below, then run the simulation.'
+              }
+              action={
+                valid ? { label: 'Run Simulation', onClick: run } : undefined
+              }
+            />
           )}
         </Panel>
 
-        <Panel title="System Log" code="LOG-01">
-          <SystemLog
-            log={result?.log ?? []}
-            upTo={sim.finished ? null : sim.currentTime}
-            maxHeight={320}
-          />
-        </Panel>
+        {/* ── CPU state + transport + log ──────────────────────── */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_minmax(0,1.15fr)]">
+          <div className="space-y-4">
+            <CPUVisualizer
+              frame={sim.frame}
+              colors={colors}
+              totalTime={result?.totalTime ?? 0}
+              startTime={result?.startTime ?? 0}
+              finished={sim.finished && result !== null}
+            />
+            <Panel title="Transport" code="CTL-01">
+              <SimulationControls
+                isRunning={sim.isRunning}
+                canPlay={sim.canPlay}
+                finished={sim.finished}
+                speed={sim.speed}
+                currentTime={sim.currentTime}
+                startTime={result?.startTime ?? 0}
+                endTime={result?.endTime ?? 0}
+                onPlay={sim.play}
+                onPause={sim.pause}
+                onStep={sim.step}
+                onReset={sim.reset}
+                onSkipToEnd={sim.skipToEnd}
+                onSpeed={sim.setSpeed}
+                onSeek={sim.seek}
+              />
+            </Panel>
+          </div>
+
+          <Panel
+            title="Process States & Classroom Scratchpad"
+            code="VIS-02"
+            note="Live scratchpad table with burst cuts, followed by ready and completed queues."
+          >
+            {result ? (
+              <ReadyQueue
+                frame={sim.frame}
+                processes={result.processes}
+                gantt={result.gantt}
+                colors={colors}
+                showPriority={meta.usesPriority}
+                selectedProcess={selectedProcess}
+                onSelectProcess={setSelectedProcess}
+              />
+            ) : (
+              <p className="tabular py-4 text-center text-xs text-muted-2">
+                Run a simulation to populate the table and queues.
+              </p>
+            )}
+          </Panel>
+
+          <Panel title="System Log" code="LOG-01">
+            <SystemLog
+              log={result?.log ?? []}
+              upTo={sim.finished ? null : sim.currentTime}
+              maxHeight={320}
+            />
+          </Panel>
+        </div>
       </div>
 
       {/* ── Per-process metrics ──────────────────────────────── */}
