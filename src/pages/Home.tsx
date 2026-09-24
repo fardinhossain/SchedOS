@@ -7,12 +7,14 @@
  */
 import { useMemo } from 'react';
 import {
+  Activity,
   ArrowRight,
   BookOpen,
   ChevronDown,
   CircuitBoard,
   Code2,
   GitCompareArrows,
+  GraduationCap,
   Info,
   ListTree,
   Play,
@@ -38,6 +40,95 @@ const DOORS: { page: PageId; code: string; label: string; icon: React.ReactNode 
   { page: 'code', code: '04', label: 'Code Examples', icon: <Code2 className="h-4 w-4" /> },
   { page: 'learn', code: '05', label: 'Learn', icon: <BookOpen className="h-4 w-4" /> },
   { page: 'about', code: '06', label: 'About', icon: <Info className="h-4 w-4" /> },
+];
+
+/** Guided walkthrough steps with distinct laboratory accents. */
+const WALKTHROUGH_STEPS = [
+  {
+    step: '01',
+    category: 'SIMULATOR',
+    title: 'Run a simulation',
+    body: 'Open Visualizer, load Preemption example, pick SRTF and press Play.',
+    page: 'visualizer' as PageId,
+    icon: CircuitBoard,
+    accentColor: 'text-crt',
+    hoverColor: 'group-hover:text-crt',
+    borderClass: 'border-crt/40 hover:border-crt',
+    badgeClass: 'border-crt/40 bg-crt/15 text-crt',
+    glowShadow: 'hover:shadow-lg hover:shadow-crt/20',
+    topBar: 'bg-crt',
+    dotBg: 'bg-crt',
+    tag: 'SRTF · PREEMPTION',
+    actionText: 'Open Visualizer',
+  },
+  {
+    step: '02',
+    category: 'METRICS',
+    title: 'Read the metrics',
+    body: 'Check CT, TAT, WT and RT derived directly from the Gantt timeline.',
+    page: 'visualizer' as PageId,
+    icon: Activity,
+    accentColor: 'text-electric',
+    hoverColor: 'group-hover:text-electric',
+    borderClass: 'border-electric/40 hover:border-electric',
+    badgeClass: 'border-electric/40 bg-electric/15 text-electric',
+    glowShadow: 'hover:shadow-lg hover:shadow-electric/20',
+    topBar: 'bg-electric',
+    dotBg: 'bg-electric',
+    tag: 'CT · TAT · WT · RT',
+    actionText: 'View Metrics',
+  },
+  {
+    step: '03',
+    category: 'BENCHMARK',
+    title: 'Compare algorithms',
+    body: 'Run FCFS, SJF, SRTF and Round Robin on identical work side-by-side.',
+    page: 'compare' as PageId,
+    icon: GitCompareArrows,
+    accentColor: 'text-signal',
+    hoverColor: 'group-hover:text-signal',
+    borderClass: 'border-signal/40 hover:border-signal',
+    badgeClass: 'border-signal/40 bg-signal/15 text-signal',
+    glowShadow: 'hover:shadow-lg hover:shadow-signal/20',
+    topBar: 'bg-signal',
+    dotBg: 'bg-signal',
+    tag: '8 POLICIES MATRIX',
+    actionText: 'Open Compare',
+  },
+  {
+    step: '04',
+    category: 'EXAM CODE',
+    title: 'Study exam code',
+    body: 'Read clean, memorable implementations taking user input in C, Python, and TS.',
+    page: 'code' as PageId,
+    icon: Code2,
+    accentColor: 'text-machine',
+    hoverColor: 'group-hover:text-machine',
+    borderClass: 'border-machine/40 hover:border-machine',
+    badgeClass: 'border-machine/40 bg-machine/15 text-machine',
+    glowShadow: 'hover:shadow-lg hover:shadow-machine/20',
+    topBar: 'bg-machine',
+    dotBg: 'bg-machine',
+    tag: 'C · PYTHON · TS',
+    actionText: 'Study Code',
+  },
+  {
+    step: '05',
+    category: 'QUIZ LAB',
+    title: 'Test yourself',
+    body: 'Use Learn mode to predict the scheduler’s next choice before it happens.',
+    page: 'learn' as PageId,
+    icon: GraduationCap,
+    accentColor: 'text-rose-400',
+    hoverColor: 'group-hover:text-rose-400',
+    borderClass: 'border-rose-400/40 hover:border-rose-400',
+    badgeClass: 'border-rose-400/40 bg-rose-400/15 text-rose-400',
+    glowShadow: 'hover:shadow-lg hover:shadow-rose-400/20',
+    topBar: 'bg-rose-400',
+    dotBg: 'bg-rose-400',
+    tag: 'PREDICT DISPATCH',
+    actionText: 'Take Quiz',
+  },
 ];
 
 export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
@@ -681,57 +772,69 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
       <Panel
         title="Suggested Walkthrough"
         code="SEQ-01"
+        tone="dark"
         note="A five-minute guided tour through the CPU scheduling laboratory."
+        actions={
+          <span className="border border-crt/40 bg-crt/15 px-2 py-0.5 font-mono text-[9px] font-bold text-crt">
+            5 GUIDED MODULES
+          </span>
+        }
       >
-        <ol className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
-          {[
-            {
-              step: '01',
-              title: 'Run a simulation',
-              body: 'Open Visualizer, load Preemption example, pick SRTF and press Play.',
-              page: 'visualizer' as PageId,
-            },
-            {
-              step: '02',
-              title: 'Read the metrics',
-              body: 'Check CT, TAT, WT and RT derived directly from the Gantt timeline.',
-              page: 'visualizer' as PageId,
-            },
-            {
-              step: '03',
-              title: 'Compare algorithms',
-              body: 'Run FCFS, SJF, SRTF and Round Robin on identical work side-by-side.',
-              page: 'compare' as PageId,
-            },
-            {
-              step: '04',
-              title: 'Study exam code',
-              body: 'Read clean, memorable implementations taking user input in C, Python, and TS.',
-              page: 'code' as PageId,
-            },
-            {
-              step: '05',
-              title: 'Test yourself',
-              body: 'Use Learn mode to predict the scheduler’s next choice before it happens.',
-              page: 'learn' as PageId,
-            },
-          ].map((item) => (
-            <li key={item.step}>
-              <button
-                type="button"
-                onClick={() => onNavigate(item.page)}
-                className="group h-full w-full border border-rule bg-bone-2/60 p-3 text-left transition-colors hover:border-ink hover:bg-bone-3/60"
-              >
-                <span className="tabular text-[10px] font-bold text-signal">{item.step}</span>
-                <p className="mt-1 text-sm font-semibold">{item.title}</p>
-                <p className="mt-1 text-xs leading-relaxed text-text/65">{item.body}</p>
-                <span className="label mt-2 flex items-center gap-1 text-muted-2 transition-colors group-hover:text-ink">
-                  Open
-                  <ArrowRight aria-hidden="true" className="h-2.5 w-2.5" />
-                </span>
-              </button>
-            </li>
-          ))}
+        <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {WALKTHROUGH_STEPS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <li key={item.step} className="h-full">
+                <button
+                  type="button"
+                  onClick={() => onNavigate(item.page)}
+                  className={[
+                    'group registered relative flex h-full w-full flex-col justify-between overflow-hidden border bg-ink-2 p-3 text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl',
+                    item.borderClass,
+                    item.glowShadow,
+                  ].join(' ')}
+                >
+                  {/* Top glowing accent stripe */}
+                  <div className={['absolute top-0 left-0 right-0 h-[2px]', item.topBar].join(' ')} />
+
+                  <div>
+                    {/* Header: LED, step badge, category, and icon */}
+                    <div className="flex items-center justify-between gap-1 border-b border-ink-3 pb-2 pt-0.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={['h-2 w-2 rounded-full blink shrink-0', item.dotBg].join(' ')} />
+                        <span className={['tabular text-[10px] font-bold px-1.5 py-0.5 border', item.badgeClass].join(' ')}>
+                          {item.step}
+                        </span>
+                        <span className="label text-[9px] text-muted-2 truncate">{item.category}</span>
+                      </div>
+                      <Icon className={['h-3.5 w-3.5 shrink-0 transition-transform group-hover:scale-110', item.accentColor].join(' ')} />
+                    </div>
+
+                    {/* Step Title & Description */}
+                    <h3 className={['mt-2.5 text-sm font-bold text-bone transition-colors', item.hoverColor].join(' ')}>
+                      {item.title}
+                    </h3>
+                    <p className="mt-1 text-xs leading-relaxed text-bone/70">
+                      {item.body}
+                    </p>
+
+                    {/* Feature highlight chip */}
+                    <div className="mt-2.5 inline-flex items-center border border-ink-3 bg-black/40 px-2 py-0.5 font-mono text-[9px]">
+                      <span className={['font-semibold', item.accentColor].join(' ')}>{item.tag}</span>
+                    </div>
+                  </div>
+
+                  {/* Action Link Footer */}
+                  <div className="mt-3.5 border-t border-ink-3 pt-2">
+                    <div className={['label flex items-center justify-between text-[10px] transition-colors', item.accentColor].join(' ')}>
+                      <span>{item.actionText}</span>
+                      <ArrowRight aria-hidden="true" className="h-3 w-3 transition-transform group-hover:translate-x-1" />
+                    </div>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
         </ol>
       </Panel>
     </div>
