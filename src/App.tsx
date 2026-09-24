@@ -17,7 +17,7 @@ import { CodeExamples } from './pages/CodeExamples';
 import { Learn } from './pages/Learn';
 import { About } from './pages/About';
 import type { AlgorithmId, PriorityOrder, ProcessInput } from './types/scheduling';
-import { DEFAULT_PROCESSES, getExample } from './data/examples';
+import { DEFAULT_PROCESSES, EXAMPLES, getExample } from './data/examples';
 import { buildColorMap } from './components/processColors';
 
 export interface LabState {
@@ -25,6 +25,7 @@ export interface LabState {
   algorithm: AlgorithmId;
   timeQuantum: number;
   priorityOrder: PriorityOrder;
+  selectedDataset: string;
   setProcesses: (processes: ProcessInput[]) => void;
   setAlgorithm: (id: AlgorithmId) => void;
   setTimeQuantum: (value: number) => void;
@@ -40,12 +41,32 @@ export default function App() {
   const [algorithm, setAlgorithm] = useState<AlgorithmId>('srtf');
   const [timeQuantum, setTimeQuantum] = useState(2);
   const [priorityOrder, setPriorityOrder] = useState<PriorityOrder>('lower-is-higher');
+  const [selectedDataset, setSelectedDataset] = useState<string>('basic');
 
   const loadExample = useCallback((exampleId: string) => {
     const example = getExample(exampleId);
     if (!example) return;
     setProcesses(example.processes);
+    setSelectedDataset(example.id);
     if (example.timeQuantum) setTimeQuantum(example.timeQuantum);
+  }, []);
+
+  const handleSetProcesses = useCallback((newProcesses: ProcessInput[]) => {
+    setProcesses(newProcesses);
+    const matched = EXAMPLES.find((ex) => {
+      if (ex.processes.length !== newProcesses.length) return false;
+      return ex.processes.every((p, idx) => {
+        const cur = newProcesses[idx];
+        return (
+          cur &&
+          cur.id === p.id &&
+          cur.arrivalTime === p.arrivalTime &&
+          cur.burstTime === p.burstTime &&
+          (p.priority === undefined || cur.priority === p.priority)
+        );
+      });
+    });
+    setSelectedDataset(matched ? matched.id : '');
   }, []);
 
   // Colour identity is positional, so it stays stable while the user edits.
@@ -56,7 +77,8 @@ export default function App() {
     algorithm,
     timeQuantum,
     priorityOrder,
-    setProcesses,
+    selectedDataset,
+    setProcesses: handleSetProcesses,
     setAlgorithm,
     setTimeQuantum,
     setPriorityOrder,

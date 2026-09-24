@@ -142,6 +142,7 @@ export function Compare({ lab }: CompareProps) {
             algorithm={strictestMeta}
             timeQuantum={timeQuantum}
             priorityOrder={lab.priorityOrder}
+            selectedDataset={lab.selectedDataset}
             issues={issues}
             colors={colors}
             onChange={(next) => {

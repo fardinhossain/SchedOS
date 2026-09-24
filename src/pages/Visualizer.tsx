@@ -165,6 +165,7 @@ export function Visualizer({ lab, onNavigate }: VisualizerProps) {
             algorithm={meta}
             timeQuantum={timeQuantum}
             priorityOrder={priorityOrder}
+            selectedDataset={lab.selectedDataset}
             issues={issues}
             colors={colors}
             onChange={lab.setProcesses}

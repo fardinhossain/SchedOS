@@ -6,6 +6,7 @@
  * confuse. Validation messages are inline, per cell, and announced to screen
  * readers.
  */
+import { useMemo } from 'react';
 import { AlertTriangle, Plus, Trash2, X } from 'lucide-react';
 import type { AlgorithmMeta, PriorityOrder, ProcessInput, ValidationIssue } from '../types/scheduling';
 import { issuesFor } from '../engine/validation';
@@ -17,6 +18,7 @@ interface ProcessTableProps {
   algorithm: AlgorithmMeta;
   timeQuantum: number;
   priorityOrder?: PriorityOrder;
+  selectedDataset?: string;
   issues: ValidationIssue[];
   colors: Record<string, string>;
   onChange: (processes: ProcessInput[]) => void;
@@ -39,6 +41,7 @@ export function ProcessTable({
   algorithm,
   timeQuantum,
   priorityOrder = 'lower-is-higher',
+  selectedDataset,
   issues,
   colors,
   onChange,
@@ -51,6 +54,26 @@ export function ProcessTable({
   const showPriority = algorithm.usesPriority;
   const showQuantum = algorithm.usesTimeQuantum;
   const formIssues = issues.filter((i) => i.row === null);
+
+  const activeDataset = useMemo(() => {
+    if (selectedDataset !== undefined && selectedDataset !== '') {
+      return selectedDataset;
+    }
+    const matched = EXAMPLES.find((ex) => {
+      if (ex.processes.length !== processes.length) return false;
+      return ex.processes.every((p, idx) => {
+        const cur = processes[idx];
+        return (
+          cur &&
+          cur.id === p.id &&
+          cur.arrivalTime === p.arrivalTime &&
+          cur.burstTime === p.burstTime &&
+          (p.priority === undefined || cur.priority === p.priority)
+        );
+      });
+    });
+    return matched ? matched.id : '';
+  }, [selectedDataset, processes]);
 
   const update = (index: number, patch: Partial<ProcessInput>): void => {
     onChange(processes.map((p, i) => (i === index ? { ...p, ...patch } : p)));
@@ -79,14 +102,15 @@ export function ProcessTable({
           <FieldLabel htmlFor="example-select">Dataset</FieldLabel>
           <select
             id="example-select"
-            defaultValue=""
+            value={activeDataset}
             onChange={(e) => {
               if (e.target.value) onLoadExample(e.target.value);
-              e.currentTarget.selectedIndex = 0;
             }}
             className="w-full border border-rule bg-bone-2 px-2 py-1.5 font-mono text-xs focus:border-ink"
           >
-            <option value="">Load example…</option>
+            <option value="" disabled>
+              Load example…
+            </option>
             {EXAMPLES.map((ex) => (
               <option key={ex.id} value={ex.id}>
                 {ex.name}
