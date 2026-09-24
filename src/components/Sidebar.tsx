@@ -56,7 +56,6 @@ export function Sidebar({ page, onNavigate }: SidebarProps) {
           <span className="tabular block text-lg leading-none font-bold tracking-tight text-bone">
             SCHED<span className="text-crt">OS</span>
           </span>
-          <span className="label mt-1 block text-muted-2">Process Lab v1.0</span>
         </button>
       </div>
 
@@ -113,11 +112,10 @@ export function MobileNav({ page, onNavigate }: SidebarProps) {
       aria-label="Main sections"
       className="sticky top-0 z-40 border-b border-ink bg-ink lg:hidden"
     >
-      <div className="flex items-center justify-between px-3 py-2">
+      <div className="flex items-center justify-between px-3 py-2.5">
         <span className="tabular text-sm leading-none font-bold text-bone">
           SCHED<span className="text-crt">OS</span>
         </span>
-        <span className="label text-muted-2">Process Lab v1.0</span>
       </div>
       <ul className="thin-scroll flex overflow-x-auto border-t border-ink-3">
         {NAV.map((item) => {

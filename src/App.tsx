@@ -132,7 +132,7 @@ export default function App() {
 
         <footer className="border-t border-rule px-4 py-3">
           <p className="tabular text-[10px] leading-relaxed text-muted-2">
-            SCHEDOS · PROCESS LAB v1.0 — an educational CPU scheduling laboratory. All timelines
+            SCHEDOS — An interactive CPU scheduling laboratory. All timelines
             and metrics are computed live in your browser from the process set you enter.
           </p>
         </footer>

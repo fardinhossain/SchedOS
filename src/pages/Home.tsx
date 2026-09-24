@@ -57,17 +57,6 @@ export function Home({ onNavigate, onSelectAlgorithm }: HomeProps) {
         className="scanlines relative flex min-h-[calc(100dvh-6.5rem)] flex-col border border-ink bg-ink lg:min-h-[calc(100dvh-5.5rem)]"
         aria-label="SchedOS entrance"
       >
-        {/* Top rail — machine identification */}
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-ink-3 px-4 py-2">
-          <span className="label flex items-center gap-2 text-crt">
-            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-crt blink" />
-            Process Lab v1.0
-          </span>
-          <span className="label hidden text-muted-2 sm:inline">
-            8 Algorithms · Client-Side · No Backend
-          </span>
-        </div>
-
         {/* Centre — wordmark + live CPU die schematic */}
         <div className="grid flex-1 items-center gap-6 p-4 sm:p-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-stretch lg:gap-10">
           {/* Wordmark block stays vertically centred while the die stretches. */}
