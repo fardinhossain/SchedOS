@@ -27,6 +27,13 @@ interface ProcessTableProps {
   disabled?: boolean;
 }
 
+function parseNumericInput(v: string | number): number {
+  if (typeof v === 'number') return v;
+  const trimmed = v.trim();
+  if (trimmed === '') return NaN;
+  return Number(trimmed);
+}
+
 export function ProcessTable({
   processes,
   algorithm,
@@ -97,7 +104,18 @@ export function ProcessTable({
               min={1}
               step={1}
               value={Number.isFinite(timeQuantum) ? timeQuantum : ''}
-              onChange={(e) => onTimeQuantum(Number(e.target.value))}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => {
+                let val = e.target.value;
+                if (/^0+[1-9]\d*$/.test(val)) {
+                  val = val.replace(/^0+/, '');
+                  e.target.value = val;
+                } else if (/^0{2,}$/.test(val)) {
+                  val = '0';
+                  e.target.value = val;
+                }
+                onTimeQuantum(parseNumericInput(val));
+              }}
               aria-invalid={issues.some((i) => i.field === 'timeQuantum')}
               className={[
                 'tabular w-full border bg-bone-2 px-2 py-1.5 text-xs focus:border-ink',
@@ -189,7 +207,7 @@ export function ProcessTable({
                     value={p.arrivalTime}
                     numeric
                     min={0}
-                    onChange={(v) => update(row, { arrivalTime: Number(v) })}
+                    onChange={(v) => update(row, { arrivalTime: parseNumericInput(v) })}
                     issues={issuesFor(issues, row, 'arrivalTime')}
                     label={`Arrival time, row ${row + 1}`}
                   />
@@ -199,7 +217,7 @@ export function ProcessTable({
                     value={p.burstTime}
                     numeric
                     min={1}
-                    onChange={(v) => update(row, { burstTime: Number(v) })}
+                    onChange={(v) => update(row, { burstTime: parseNumericInput(v) })}
                     issues={issuesFor(issues, row, 'burstTime')}
                     label={`Burst time, row ${row + 1}`}
                   />
@@ -210,7 +228,7 @@ export function ProcessTable({
                       value={p.priority ?? ''}
                       numeric
                       min={0}
-                      onChange={(v) => update(row, { priority: Number(v) })}
+                      onChange={(v) => update(row, { priority: parseNumericInput(v) })}
                       issues={issuesFor(issues, row, 'priority')}
                       label={`Priority, row ${row + 1}`}
                     />
@@ -303,17 +321,47 @@ function Cell({
   width?: string;
 }) {
   const invalid = issues.length > 0;
+  const displayValue =
+    value === undefined ||
+    value === null ||
+    (typeof value === 'number' && Number.isNaN(value))
+      ? ''
+      : value;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value;
+    if (numeric) {
+      if (raw === '') {
+        onChange('');
+        return;
+      }
+      if (/^0+[1-9]\d*$/.test(raw)) {
+        raw = raw.replace(/^0+/, '');
+        e.target.value = raw;
+      } else if (/^0{2,}$/.test(raw)) {
+        raw = '0';
+        e.target.value = raw;
+      }
+    }
+    onChange(raw);
+  };
+
   return (
     <div className={width}>
       <input
         type={numeric ? 'number' : 'text'}
         min={min}
         step={numeric ? 1 : undefined}
-        value={value}
+        value={displayValue}
         aria-label={label}
         aria-invalid={invalid}
         aria-describedby={invalid ? `${label.replace(/\s+/g, '-')}-err` : undefined}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={handleChange}
+        onFocus={(e) => {
+          if (numeric) {
+            e.target.select();
+          }
+        }}
         className={[
           'tabular w-full border px-1.5 py-1 text-xs focus:border-ink',
           invalid ? 'border-signal bg-signal/10' : 'border-rule bg-bone',
