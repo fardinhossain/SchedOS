@@ -74,9 +74,14 @@ export function GanttChart({
     return Array.from(points).sort((a, b) => a - b);
   }, [gantt, startTime]);
 
-  if (!gantt.length) return null;
-
   const visibleEnd = revealUpTo === null ? endTime : Math.min(revealUpTo, endTime);
+
+  // During progressive simulation playback, only show ticks where the process has already ended
+  // (plus the initial start time). Future completion times are hidden until the clock reaches them.
+  const displayedTicks = useMemo(() => {
+    if (revealUpTo === null) return boundaryTicks;
+    return boundaryTicks.filter((t) => t <= visibleEnd);
+  }, [boundaryTicks, revealUpTo, visibleEnd]);
 
   return (
     <div className="relative min-w-0">
@@ -84,7 +89,7 @@ export function GanttChart({
         <div style={{ width: totalWidth, minWidth: '100%' }}>
           {/* Start-time markers along the top edge */}
           <div className="relative h-3" aria-hidden="true">
-            {boundaryTicks.map((t) => (
+            {displayedTicks.map((t) => (
               <span
                 key={`m-${t}`}
                 className="absolute bottom-0 w-px bg-rule"
@@ -193,7 +198,7 @@ export function GanttChart({
 
           {/* Time axis */}
           <div className="relative mt-0.5 h-7 border-t border-transparent" aria-hidden="true">
-            {boundaryTicks.map((t) => {
+            {displayedTicks.map((t) => {
               const left = pct(t - startTime);
               const isLast = t === endTime;
               return (
@@ -216,7 +221,7 @@ export function GanttChart({
             })}
 
             {/* Live playhead indicator on axis if mid-block */}
-            {revealUpTo !== null && visibleEnd < endTime && !boundaryTicks.includes(visibleEnd) && (
+            {revealUpTo !== null && visibleEnd < endTime && !displayedTicks.includes(visibleEnd) && (
               <div
                 className="pointer-events-none absolute top-0 z-20 flex flex-col items-center"
                 style={{ left: pct(visibleEnd - startTime), transform: 'translateX(-50%)' }}
