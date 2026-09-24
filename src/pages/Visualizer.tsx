@@ -144,6 +144,41 @@ export function Visualizer({ lab, onNavigate }: VisualizerProps) {
         </div>
       )}
 
+      {/* ── Input + performance ──────────────────────────────── */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,15rem)]">
+        <Panel title="Algorithm" code="SEL-01" note={meta.tieBreak}>
+          <AlgorithmSelector selected={algorithm} onSelect={lab.setAlgorithm} />
+        </Panel>
+
+        <Panel title="Process Input" code="INP-01">
+          <ProcessTable
+            processes={processes}
+            algorithm={meta}
+            timeQuantum={timeQuantum}
+            issues={issues}
+            colors={colors}
+            onChange={lab.setProcesses}
+            onTimeQuantum={lab.setTimeQuantum}
+            onLoadExample={lab.loadExample}
+            onRun={run}
+            disabled={!valid}
+          />
+        </Panel>
+
+        <Panel title="Performance" code="PRF-01">
+          {result ? (
+            <div className="space-y-3">
+              <PerformanceCards result={result} />
+              <UtilizationGauge result={result} />
+            </div>
+          ) : (
+            <p className="tabular py-4 text-center text-xs text-muted-2">
+              Metrics appear after a run.
+            </p>
+          )}
+        </Panel>
+      </div>
+
       {/* ── PRIMARY: Gantt chart ─────────────────────────────── */}
       <Panel
         title="Gantt Chart — CPU Execution Timeline"
@@ -249,41 +284,6 @@ export function Visualizer({ lab, onNavigate }: VisualizerProps) {
             upTo={sim.finished ? null : sim.currentTime}
             maxHeight={320}
           />
-        </Panel>
-      </div>
-
-      {/* ── Input + performance ──────────────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,15rem)]">
-        <Panel title="Algorithm" code="SEL-01" note={meta.tieBreak}>
-          <AlgorithmSelector selected={algorithm} onSelect={lab.setAlgorithm} />
-        </Panel>
-
-        <Panel title="Process Input" code="INP-01">
-          <ProcessTable
-            processes={processes}
-            algorithm={meta}
-            timeQuantum={timeQuantum}
-            issues={issues}
-            colors={colors}
-            onChange={lab.setProcesses}
-            onTimeQuantum={lab.setTimeQuantum}
-            onLoadExample={lab.loadExample}
-            onRun={run}
-            disabled={!valid}
-          />
-        </Panel>
-
-        <Panel title="Performance" code="PRF-01">
-          {result ? (
-            <div className="space-y-3">
-              <PerformanceCards result={result} />
-              <UtilizationGauge result={result} />
-            </div>
-          ) : (
-            <p className="tabular py-4 text-center text-xs text-muted-2">
-              Metrics appear after a run.
-            </p>
-          )}
         </Panel>
       </div>
 
