@@ -61,7 +61,12 @@ export function Compare({ lab }: CompareProps) {
   const run = (): void => {
     if (!canRun) return;
     try {
-      setRows(runComparison(selected, processes, { timeQuantum }));
+      setRows(
+        runComparison(selected, processes, {
+          timeQuantum,
+          priorityOrder: lab.priorityOrder,
+        }),
+      );
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Comparison failed', error);
@@ -136,6 +141,7 @@ export function Compare({ lab }: CompareProps) {
             processes={processes}
             algorithm={strictestMeta}
             timeQuantum={timeQuantum}
+            priorityOrder={lab.priorityOrder}
             issues={issues}
             colors={colors}
             onChange={(next) => {
@@ -144,6 +150,10 @@ export function Compare({ lab }: CompareProps) {
             }}
             onTimeQuantum={(q) => {
               lab.setTimeQuantum(q);
+              setRows(null);
+            }}
+            onPriorityOrder={(order) => {
+              lab.setPriorityOrder(order);
               setRows(null);
             }}
             onLoadExample={(id) => {

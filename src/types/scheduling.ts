@@ -86,9 +86,17 @@ export type AlgorithmId =
 
 export type AlgorithmCategory = 'non-preemptive' | 'preemptive';
 
+export type PriorityOrder = 'lower-is-higher' | 'higher-is-higher';
+
 export interface AlgorithmOptions {
   /** Required (and validated) for Round Robin only. */
   timeQuantum?: number;
+  /**
+   * Priority ranking convention for Priority algorithms:
+   * - 'lower-is-higher': smaller number = higher priority (e.g. 1 is highest, default).
+   * - 'higher-is-higher': bigger number = higher priority (e.g. 9 is higher than 1).
+   */
+  priorityOrder?: PriorityOrder;
 }
 
 export type SchedulerFn = (

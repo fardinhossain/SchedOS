@@ -109,11 +109,11 @@ const MEMORY_TIPS: Record<
     ],
   },
   'priority-np': {
-    ruleSummary: 'Priority Non-Preemptive: pick arrived process with highest priority (lowest number).',
+    ruleSummary: 'Priority Non-Preemptive: pick arrived process with highest priority.',
     stepLogic:
-      'Scan arrived & unfinished processes, pick min priority value, run to completion, advance time = CT.',
+      'Scan arrived & unfinished processes, pick highest priority, run to completion, advance time = CT.',
     examTrap:
-      'Convention: Lower numerical value means HIGHER priority (e.g. Priority 1 > Priority 4).',
+      'Convention check: Lower value = higher priority (1 > 4) vs Higher value = higher priority (9 > 1). In SchedOS you can toggle both!',
     sampleInput: [
       'Enter number of processes: 3',
       'Process 1 (ID Arrival Burst Priority): P1 0 4 2',
@@ -200,11 +200,11 @@ const MEMORY_TIPS: Record<
     ],
   },
   'priority-p': {
-    ruleSummary: 'Priority Preemptive: at each tick, pick arrived process with highest priority (lowest number).',
+    ruleSummary: 'Priority Preemptive: at each tick, pick arrived process with highest priority.',
     stepLogic:
-      'Tick-by-tick simulation: pick process with min priority among arrived with remaining_bt > 0. Decrement by 1. Preempts immediately if a better priority arrives.',
+      'Tick-by-tick simulation: pick process with highest priority among arrived with remaining_bt > 0. Preempts immediately if a better priority arrives.',
     examTrap:
-      'Tie-breaking: if two arrived processes share the same priority, the earlier arrival or lower process number runs.',
+      'Convention check: supports both Lower value = high priority (1 > 4) and Bigger value = high priority (9 > 1). On ties, earlier arrival runs.',
     sampleInput: [
       'Enter number of processes: 3',
       'Process 1 (ID Arrival Burst Priority): P1 0 6 3',

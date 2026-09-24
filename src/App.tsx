@@ -16,7 +16,7 @@ import { Algorithms } from './pages/Algorithms';
 import { CodeExamples } from './pages/CodeExamples';
 import { Learn } from './pages/Learn';
 import { About } from './pages/About';
-import type { AlgorithmId, ProcessInput } from './types/scheduling';
+import type { AlgorithmId, PriorityOrder, ProcessInput } from './types/scheduling';
 import { DEFAULT_PROCESSES, getExample } from './data/examples';
 import { buildColorMap } from './components/processColors';
 
@@ -24,9 +24,11 @@ export interface LabState {
   processes: ProcessInput[];
   algorithm: AlgorithmId;
   timeQuantum: number;
+  priorityOrder: PriorityOrder;
   setProcesses: (processes: ProcessInput[]) => void;
   setAlgorithm: (id: AlgorithmId) => void;
   setTimeQuantum: (value: number) => void;
+  setPriorityOrder: (order: PriorityOrder) => void;
   loadExample: (exampleId: string) => void;
   /** Stable pid -> colour map for the current process set. */
   colors: Record<string, string>;
@@ -37,6 +39,7 @@ export default function App() {
   const [processes, setProcesses] = useState<ProcessInput[]>(DEFAULT_PROCESSES);
   const [algorithm, setAlgorithm] = useState<AlgorithmId>('srtf');
   const [timeQuantum, setTimeQuantum] = useState(2);
+  const [priorityOrder, setPriorityOrder] = useState<PriorityOrder>('lower-is-higher');
 
   const loadExample = useCallback((exampleId: string) => {
     const example = getExample(exampleId);
@@ -52,9 +55,11 @@ export default function App() {
     processes,
     algorithm,
     timeQuantum,
+    priorityOrder,
     setProcesses,
     setAlgorithm,
     setTimeQuantum,
+    setPriorityOrder,
     loadExample,
     colors,
   };

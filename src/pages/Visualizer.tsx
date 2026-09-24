@@ -36,7 +36,7 @@ interface VisualizerProps {
 }
 
 export function Visualizer({ lab, onNavigate }: VisualizerProps) {
-  const { processes, algorithm, timeQuantum, colors } = lab;
+  const { processes, algorithm, timeQuantum, priorityOrder, colors } = lab;
   const meta = ALGORITHM_MAP[algorithm];
 
   const [result, setResult] = useState<SchedulingResult | null>(null);
@@ -56,15 +56,16 @@ export function Visualizer({ lab, onNavigate }: VisualizerProps) {
         processes,
         algorithm,
         q: meta.usesTimeQuantum ? timeQuantum : null,
+        pOrder: meta.usesPriority ? priorityOrder : null,
       }),
-    [processes, algorithm, timeQuantum, meta.usesTimeQuantum],
+    [processes, algorithm, timeQuantum, priorityOrder, meta.usesTimeQuantum, meta.usesPriority],
   );
 
   const stale = result !== null && ranWith !== signature;
 
   const run = (): void => {
     if (!valid) return;
-    const options: AlgorithmOptions = { timeQuantum };
+    const options: AlgorithmOptions = { timeQuantum, priorityOrder };
     try {
       setResult(SCHEDULERS[algorithm](processes, options));
       setRanWith(signature);
@@ -146,7 +147,15 @@ export function Visualizer({ lab, onNavigate }: VisualizerProps) {
 
       {/* ── Input + performance ──────────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,15rem)]">
-        <Panel title="Algorithm" code="SEL-01" note={meta.tieBreak}>
+        <Panel
+          title="Algorithm"
+          code="SEL-01"
+          note={
+            meta.usesPriority
+              ? `${meta.tieBreak} Mode: ${priorityOrder === 'higher-is-higher' ? 'Bigger value = Higher priority' : 'Smaller value = Higher priority'}.`
+              : meta.tieBreak
+          }
+        >
           <AlgorithmSelector selected={algorithm} onSelect={lab.setAlgorithm} />
         </Panel>
 
@@ -155,10 +164,12 @@ export function Visualizer({ lab, onNavigate }: VisualizerProps) {
             processes={processes}
             algorithm={meta}
             timeQuantum={timeQuantum}
+            priorityOrder={priorityOrder}
             issues={issues}
             colors={colors}
             onChange={lab.setProcesses}
             onTimeQuantum={lab.setTimeQuantum}
+            onPriorityOrder={lab.setPriorityOrder}
             onLoadExample={lab.loadExample}
             onRun={run}
             disabled={!valid}

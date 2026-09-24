@@ -9,7 +9,7 @@
  *      on paper, so a plausible-but-wrong schedule cannot pass.
  */
 import { describe, expect, it } from 'vitest';
-import type { AlgorithmId, ProcessInput, SchedulingResult } from '../types/scheduling';
+import type { AlgorithmId, PriorityOrder, ProcessInput, SchedulingResult } from '../types/scheduling';
 import { IDLE_ID } from '../types/scheduling';
 import { ALGORITHMS, SCHEDULERS } from '../algorithms';
 import { EXAMPLES } from '../data/examples';
@@ -21,8 +21,13 @@ function timeline(result: SchedulingResult): string {
   return result.gantt.map((b) => `${b.processId}:${b.startTime}-${b.endTime}`).join(',');
 }
 
-function run(id: AlgorithmId, processes: ProcessInput[], timeQuantum = 2): SchedulingResult {
-  return SCHEDULERS[id](processes, { timeQuantum });
+function run(
+  id: AlgorithmId,
+  processes: ProcessInput[],
+  timeQuantum = 2,
+  priorityOrder: PriorityOrder = 'lower-is-higher',
+): SchedulingResult {
+  return SCHEDULERS[id](processes, { timeQuantum, priorityOrder });
 }
 
 describe('structural invariants (every algorithm × every dataset)', () => {
@@ -265,6 +270,27 @@ describe('Priority (preemptive) — hand-computed', () => {
     );
     // Same total work, so turnaround happens to match here — worth pinning.
     expect(r.averageTurnaroundTime).toBe(8.75);
+  });
+});
+
+describe('Priority (higher-is-higher mode) — hand-computed', () => {
+  const procs = EXAMPLES[5].processes; // P1(0,6,p4) P2(2,4,p1) P3(4,3,p2) P4(6,5,p3)
+
+  it('runs highest numerical priority first in non-preemptive mode', () => {
+    const r = run('priority-np', procs, 2, 'higher-is-higher');
+    // In higher-is-higher: P1(0,6,p4) runs 0-6. At t=6, ready are P4(p3), P3(p2), P2(p1).
+    // Sorting by highest numerical priority: P4(p3) > P3(p2) > P2(p1).
+    expect(timeline(r)).toBe('P1:0-6,P4:6-11,P3:11-14,P2:14-18');
+  });
+
+  it('does not preempt P1 with lower numerical priority P2 in preemptive mode', () => {
+    const r = run('priority-p', procs, 2, 'higher-is-higher');
+    // P1 arrives at t=0 with priority 4.
+    // At t=2, P2 arrives with priority 1. Since 1 < 4, P1 is NOT preempted.
+    // At t=4, P3 arrives with priority 2. Since 2 < 4, P1 is NOT preempted.
+    // At t=6, P1 completes, and P4 arrives with priority 3.
+    // Order among ready [P4(3), P3(2), P2(1)]: P4 runs, then P3, then P2.
+    expect(timeline(r)).toBe('P1:0-6,P4:6-11,P3:11-14,P2:14-18');
   });
 });
 

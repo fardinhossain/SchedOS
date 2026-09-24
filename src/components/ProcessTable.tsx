@@ -7,7 +7,7 @@
  * readers.
  */
 import { AlertTriangle, Plus, Trash2, X } from 'lucide-react';
-import type { AlgorithmMeta, ProcessInput, ValidationIssue } from '../types/scheduling';
+import type { AlgorithmMeta, PriorityOrder, ProcessInput, ValidationIssue } from '../types/scheduling';
 import { issuesFor } from '../engine/validation';
 import { EXAMPLES } from '../data/examples';
 import { FieldLabel } from './Panel';
@@ -16,10 +16,12 @@ interface ProcessTableProps {
   processes: ProcessInput[];
   algorithm: AlgorithmMeta;
   timeQuantum: number;
+  priorityOrder?: PriorityOrder;
   issues: ValidationIssue[];
   colors: Record<string, string>;
   onChange: (processes: ProcessInput[]) => void;
   onTimeQuantum: (value: number) => void;
+  onPriorityOrder?: (order: PriorityOrder) => void;
   onLoadExample: (exampleId: string) => void;
   onRun: () => void;
   disabled?: boolean;
@@ -29,10 +31,12 @@ export function ProcessTable({
   processes,
   algorithm,
   timeQuantum,
+  priorityOrder = 'lower-is-higher',
   issues,
   colors,
   onChange,
   onTimeQuantum,
+  onPriorityOrder,
   onLoadExample,
   onRun,
   disabled,
@@ -104,6 +108,21 @@ export function ProcessTable({
             />
           </div>
         )}
+
+        {showPriority && onPriorityOrder && (
+          <div className="min-w-[13rem] flex-1 sm:max-w-xs">
+            <FieldLabel htmlFor="priority-order">Priority Mode</FieldLabel>
+            <select
+              id="priority-order"
+              value={priorityOrder}
+              onChange={(e) => onPriorityOrder(e.target.value as PriorityOrder)}
+              className="w-full border border-rule bg-bone-2 px-2 py-1.5 font-mono text-xs focus:border-ink"
+            >
+              <option value="lower-is-higher">Smaller value = Higher priority (1 &gt; 2)</option>
+              <option value="higher-is-higher">Bigger value = Higher priority (9 &gt; 1)</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -111,7 +130,9 @@ export function ProcessTable({
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">
             Editable process input table. Columns: process id, arrival time, burst time
-            {showPriority ? ', priority' : ''} and remove.
+            {showPriority
+              ? `, priority (${priorityOrder === 'higher-is-higher' ? 'bigger number is higher priority' : 'smaller number is higher priority'})`
+              : ''} and remove.
           </caption>
           <thead>
             <tr className="border-b border-rule bg-bone-3/60">
@@ -126,7 +147,7 @@ export function ProcessTable({
               </th>
               {showPriority && (
                 <th scope="col" className="label px-2 py-2 text-muted-2">
-                  Priority
+                  Priority {priorityOrder === 'higher-is-higher' ? '(High=Max)' : '(Low=Max)'}
                 </th>
               )}
               <th scope="col" className="label px-2 py-2 text-right text-muted-2">

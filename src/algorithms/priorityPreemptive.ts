@@ -6,10 +6,14 @@ import type { SchedulerFn } from '../types/scheduling';
 import { buildResult } from '../engine/metrics';
 import { runPreemptive, tieBreak } from '../engine/scheduler';
 
-export const priorityPreemptive: SchedulerFn = (processes) => {
+export const priorityPreemptive: SchedulerFn = (processes, options) => {
+  const higherIsHigher = options?.priorityOrder === 'higher-is-higher';
   const { blocks, log } = runPreemptive(processes, (ready) =>
     [...ready].sort(
-      (a, b) => (a.priority ?? 0) - (b.priority ?? 0) || tieBreak(a, b),
+      (a, b) =>
+        (higherIsHigher
+          ? (b.priority ?? 0) - (a.priority ?? 0)
+          : (a.priority ?? 0) - (b.priority ?? 0)) || tieBreak(a, b),
     )[0] ?? null,
   );
   return buildResult(processes, blocks, log);
