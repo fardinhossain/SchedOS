@@ -11,7 +11,7 @@ import { Check, Copy, FileCode2 } from 'lucide-react';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-c';
 import 'prismjs/components/prism-python';
-import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-bash';
 import type { AlgorithmId, SupportedLanguage } from '../types/scheduling';
 import { ALGORITHM_MAP } from '../algorithms';
 import { LANGUAGES, getCode } from '../codeExamples';

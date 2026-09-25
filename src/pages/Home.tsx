@@ -99,7 +99,7 @@ const WALKTHROUGH_STEPS = [
     step: '04',
     category: 'EXAM CODE',
     title: 'Study exam code',
-    body: 'Read clean, memorable implementations taking user input in C, Python, and TS.',
+    body: 'Read clean, memorable implementations taking user input in C, Python, and Bash.',
     page: 'code' as PageId,
     icon: Code2,
     accentColor: 'text-machine',
@@ -109,7 +109,7 @@ const WALKTHROUGH_STEPS = [
     glowShadow: 'hover:shadow-lg hover:shadow-machine/20',
     topBar: 'bg-machine',
     dotBg: 'bg-machine',
-    tag: 'C · PYTHON · TS',
+    tag: 'C · PYTHON · BASH',
     actionText: 'Study Code',
   },
   {

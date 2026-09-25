@@ -122,7 +122,7 @@ export interface AlgorithmMeta {
   tieBreak: string;
 }
 
-export type SupportedLanguage = 'c' | 'python' | 'typescript';
+export type SupportedLanguage = 'c' | 'python' | 'bash';
 
 export interface ValidationIssue {
   /** Index into the process array, or null for whole-form issues. */

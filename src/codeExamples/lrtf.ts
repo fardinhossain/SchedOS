@@ -148,95 +148,84 @@ for p in processes:
 print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
 print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-  typescript: `import * as readline from 'readline';
+  bash: `#!/usr/bin/env bash
+# Longest Remaining Time First (LRTF) — Preemptive LJF
+# Rule: At each time tick, pick the available process with the longest remaining time.
 
-/**
- * Longest Remaining Time First (LRTF) — Preemptive LJF
- * Rule: At each time tick, pick the available process with the longest remaining time.
- */
+read -p "Enter number of processes: " n
+if [ "$n" -le 0 ]; then exit 0; fi
 
-interface Process {
-  id: string;
-  at: number;
-  bt: number;
-  remainingBt: number;
-  firstStart: number;
-  ct?: number;
-  tat?: number;
-  wt?: number;
-  rt?: number;
-}
+declare -a id at bt remaining_bt ct tat wt rt first_start
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+for ((i = 0; i < n; i++)); do
+    read -p "Process $((i + 1)) (ID Arrival Burst): " p_id p_at p_bt
+    id[i]="$p_id"
+    at[i]="$p_at"
+    bt[i]="$p_bt"
+    remaining_bt[i]="$p_bt"
+    first_start[i]=-1
+done
 
-const ask = (q: string): Promise<string> =>
-  new Promise((resolve) => rl.question(q, resolve));
+current_time=0
+completed=0
+total_tat=0
+total_wt=0
 
-async function main() {
-  const nStr = await ask('Enter number of processes: ');
-  const n = parseInt(nStr.trim(), 10);
-  const processes: Process[] = [];
+# Preemptive simulation loop (tick-by-tick)
+while [ "$completed" -lt "$n" ]; do
+    idx=-1
+    max_rem=-1
 
-  for (let i = 0; i < n; i++) {
-    const input = await ask(\`Process \${i + 1} (ID Arrival Burst): \`);
-    const [id, atStr, btStr] = input.trim().split(/\\s+/);
-    const bt = parseInt(btStr, 10);
-    processes.push({
-      id,
-      at: parseInt(atStr, 10),
-      bt,
-      remainingBt: bt,
-      firstStart: -1,
-    });
-  }
-  rl.close();
+    # Find process with maximum remaining burst time among arrived
+    for ((i = 0; i < n; i++)); do
+        if [ "\${at[i]}" -le "$current_time" ] && [ "\${remaining_bt[i]}" -gt 0 ]; then
+            if [ "\${remaining_bt[i]}" -gt "$max_rem" ]; then
+                max_rem="\${remaining_bt[i]}"
+                idx="$i"
+            elif [ "\${remaining_bt[i]}" -eq "$max_rem" ]; then
+                if [ "\${at[i]}" -lt "\${at[idx]}" ]; then
+                    idx="$i" # Tie-breaker: earlier arrival
+                fi
+            fi
+        fi
+    done
 
-  let currentTime = 0;
-  let completed = 0;
-  let totalTat = 0;
-  let totalWt = 0;
+    if [ "$idx" -eq -1 ]; then
+        current_time=$((current_time + 1)) # CPU idle
+        continue
+    fi
 
-  while (completed < n) {
-    const ready = processes.filter((p) => p.at <= currentTime && p.remainingBt > 0);
+    # Record response time at first CPU allocation
+    if [ "\${first_start[idx]}" -eq -1 ]; then
+        first_start[idx]="$current_time"
+        rt[idx]=$((current_time - at[idx]))
+    fi
 
-    if (ready.length === 0) {
-      currentTime++;
-      continue;
-    }
+    # Run for 1 unit of time
+    remaining_bt[idx]=$((remaining_bt[idx] - 1))
+    current_time=$((current_time + 1))
 
-    // Pick largest remaining burst (tie-breaker: earlier arrival)
-    ready.sort((a, b) => b.remainingBt - a.remainingBt || a.at - b.at);
-    const chosen = ready[0];
+    # Check if process completed
+    if [ "\${remaining_bt[idx]}" -eq 0 ]; then
+        ct[idx]="$current_time"
+        tat[idx]=$((ct[idx] - at[idx]))
+        wt[idx]=$((tat[idx] - bt[idx]))
 
-    if (chosen.firstStart === -1) {
-      chosen.firstStart = currentTime;
-      chosen.rt = currentTime - chosen.at;
-    }
+        completed=$((completed + 1))
+        total_tat=$((total_tat + tat[idx]))
+        total_wt=$((total_wt + wt[idx]))
+    fi
+done
 
-    chosen.remainingBt--;
-    currentTime++;
+# Output results table
+echo -e "\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT"
+for ((i = 0; i < n; i++)); do
+    echo -e "\${id[i]}\\t\${at[i]}\\t\${bt[i]}\\t\${ct[i]}\\t\${tat[i]}\\t\${wt[i]}\\t\${rt[i]}"
+done
 
-    if (chosen.remainingBt === 0) {
-      chosen.ct = currentTime;
-      chosen.tat = chosen.ct - chosen.at;
-      chosen.wt = chosen.tat - chosen.bt;
+avg_tat=$(awk "BEGIN {printf \\"%.2f\\", $total_tat / $n}")
+avg_wt=$(awk "BEGIN {printf \\"%.2f\\", $total_wt / $n}")
 
-      completed++;
-      totalTat += chosen.tat;
-      totalWt += chosen.wt;
-    }
-  }
-
-  console.log('\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT');
-  for (const p of processes) {
-    console.log(\`\${p.id}\\t\${p.at}\\t\${p.bt}\\t\${p.ct}\\t\${p.tat}\\t\${p.wt}\\t\${p.rt}\`);
-  }
-  console.log(\`\\nAverage Turnaround Time: \${(totalTat / n).toFixed(2)}\`);
-  console.log(\`Average Waiting Time   : \${(totalWt / n).toFixed(2)}\`);
-}
-
-main();`,
+echo -e "\\nAverage Turnaround Time: $avg_tat"
+echo -e "Average Waiting Time   : $avg_wt"`,
 };

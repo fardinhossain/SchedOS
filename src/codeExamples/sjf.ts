@@ -131,85 +131,74 @@ for p in processes:
 print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
 print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-  typescript: `import * as readline from 'readline';
+  bash: `#!/usr/bin/env bash
+# Shortest Job First (SJF) — Non-Preemptive
+# Rule: Among all arrived processes, pick the one with the shortest burst time.
 
-/**
- * Shortest Job First (SJF) — Non-Preemptive
- * Rule: Among all arrived processes, pick the one with the shortest burst time.
- */
+read -p "Enter number of processes: " n
+if [ "$n" -le 0 ]; then exit 0; fi
 
-interface Process {
-  id: string;
-  at: number;
-  bt: number;
-  ct?: number;
-  tat?: number;
-  wt?: number;
-  rt?: number;
-  completed: boolean;
-}
+declare -a id at bt ct tat wt rt completed
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+for ((i = 0; i < n; i++)); do
+    read -p "Process $((i + 1)) (ID Arrival Burst): " p_id p_at p_bt
+    id[i]="$p_id"
+    at[i]="$p_at"
+    bt[i]="$p_bt"
+    completed[i]=0
+done
 
-const ask = (q: string): Promise<string> =>
-  new Promise((resolve) => rl.question(q, resolve));
+current_time=0
+completed_count=0
+total_tat=0
+total_wt=0
 
-async function main() {
-  const nStr = await ask('Enter number of processes: ');
-  const n = parseInt(nStr.trim(), 10);
-  const processes: Process[] = [];
+# Simulation loop
+while [ "$completed_count" -lt "$n" ]; do
+    idx=-1
+    min_bt=999999
 
-  for (let i = 0; i < n; i++) {
-    const input = await ask(\`Process \${i + 1} (ID Arrival Burst): \`);
-    const [id, at, bt] = input.trim().split(/\\s+/);
-    processes.push({
-      id,
-      at: parseInt(at, 10),
-      bt: parseInt(bt, 10),
-      completed: false,
-    });
-  }
-  rl.close();
+    # Find arrived process with shortest burst time
+    for ((i = 0; i < n; i++)); do
+        if [ "\${at[i]}" -le "$current_time" ] && [ "\${completed[i]}" -eq 0 ]; then
+            if [ "\${bt[i]}" -lt "$min_bt" ]; then
+                min_bt="\${bt[i]}"
+                idx="$i"
+            elif [ "\${bt[i]}" -eq "$min_bt" ]; then
+                if [ "\${at[i]}" -lt "\${at[idx]}" ]; then
+                    idx="$i" # Tie-breaker: earlier arrival
+                fi
+            fi
+        fi
+    done
 
-  let currentTime = 0;
-  let completed = 0;
-  let totalTat = 0;
-  let totalWt = 0;
+    if [ "$idx" -eq -1 ]; then
+        current_time=$((current_time + 1)) # CPU sits idle
+        continue
+    fi
 
-  while (completed < n) {
-    const ready = processes.filter((p) => p.at <= currentTime && !p.completed);
+    # Run chosen process to completion
+    rt[idx]=$((current_time - at[idx]))
+    ct[idx]=$((current_time + bt[idx]))
+    tat[idx]=$((ct[idx] - at[idx]))
+    wt[idx]=$((tat[idx] - bt[idx]))
+    completed[idx]=1
 
-    if (ready.length === 0) {
-      currentTime++; // CPU idle
-      continue;
-    }
+    current_time="\${ct[idx]}"
+    completed_count=$((completed_count + 1))
+    total_tat=$((total_tat + tat[idx]))
+    total_wt=$((total_wt + wt[idx]))
+done
 
-    // Pick shortest burst (tie-breaker: earlier arrival)
-    ready.sort((a, b) => a.bt - b.bt || a.at - b.at);
-    const chosen = ready[0];
+# Output results table
+echo -e "\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT"
+for ((i = 0; i < n; i++)); do
+    echo -e "\${id[i]}\\t\${at[i]}\\t\${bt[i]}\\t\${ct[i]}\\t\${tat[i]}\\t\${wt[i]}\\t\${rt[i]}"
+done
 
-    chosen.rt = currentTime - chosen.at;
-    chosen.ct = currentTime + chosen.bt;
-    chosen.tat = chosen.ct - chosen.at;
-    chosen.wt = chosen.tat - chosen.bt;
-    chosen.completed = true;
+avg_tat=$(awk "BEGIN {printf \\"%.2f\\", $total_tat / $n}")
+avg_wt=$(awk "BEGIN {printf \\"%.2f\\", $total_wt / $n}")
 
-    currentTime = chosen.ct;
-    completed++;
-    totalTat += chosen.tat;
-    totalWt += chosen.wt;
-  }
-
-  console.log('\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT');
-  for (const p of processes) {
-    console.log(\`\${p.id}\\t\${p.at}\\t\${p.bt}\\t\${p.ct}\\t\${p.tat}\\t\${p.wt}\\t\${p.rt}\`);
-  }
-  console.log(\`\\nAverage Turnaround Time: \${(totalTat / n).toFixed(2)}\`);
-  console.log(\`Average Waiting Time   : \${(totalWt / n).toFixed(2)}\`);
-}
-
-main();`,
+echo -e "\\nAverage Turnaround Time: $avg_tat"
+echo -e "Average Waiting Time   : $avg_wt"`,
 };

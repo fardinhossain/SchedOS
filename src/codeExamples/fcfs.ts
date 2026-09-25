@@ -117,73 +117,64 @@ for p in processes:
 print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
 print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-  typescript: `import * as readline from 'readline';
+  bash: `#!/usr/bin/env bash
+# First Come First Serve (FCFS) Scheduling
+# Rule: Execute processes in order of arrival time.
 
-/**
- * First Come First Serve (FCFS) Scheduling
- * Rule: Execute processes in order of arrival time.
- */
+read -p "Enter number of processes: " n
+if [ "$n" -le 0 ]; then exit 0; fi
 
-interface Process {
-  id: string;
-  at: number;
-  bt: number;
-  ct?: number;
-  tat?: number;
-  wt?: number;
-  rt?: number;
-}
+declare -a id at bt ct tat wt rt
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+for ((i = 0; i < n; i++)); do
+    read -p "Process $((i + 1)) (ID Arrival Burst): " p_id p_at p_bt
+    id[i]="$p_id"
+    at[i]="$p_at"
+    bt[i]="$p_bt"
+done
 
-const ask = (q: string): Promise<string> =>
-  new Promise((resolve) => rl.question(q, resolve));
+# 1. Sort processes by arrival time (Bubble Sort)
+for ((i = 0; i < n - 1; i++)); do
+    for ((j = 0; j < n - i - 1; j++)); do
+        if [ "\${at[j]}" -gt "\${at[j + 1]}" ]; then
+            # Swap arrival time
+            temp="\${at[j]}"; at[j]="\${at[j + 1]}"; at[j + 1]="$temp"
+            # Swap burst time
+            temp="\${bt[j]}"; bt[j]="\${bt[j + 1]}"; bt[j + 1]="$temp"
+            # Swap process ID
+            temp="\${id[j]}"; id[j]="\${id[j + 1]}"; id[j + 1]="$temp"
+        fi
+    done
+done
 
-async function main() {
-  const nStr = await ask('Enter number of processes: ');
-  const n = parseInt(nStr.trim(), 10);
-  const processes: Process[] = [];
+# 2. Schedule each process
+current_time=0
+total_tat=0
+total_wt=0
 
-  for (let i = 0; i < n; i++) {
-    const input = await ask(\`Process \${i + 1} (ID Arrival Burst): \`);
-    const [id, at, bt] = input.trim().split(/\\s+/);
-    processes.push({ id, at: parseInt(at, 10), bt: parseInt(bt, 10) });
-  }
-  rl.close();
+for ((i = 0; i < n; i++)); do
+    if [ "$current_time" -lt "\${at[i]}" ]; then
+        current_time="\${at[i]}" # CPU was idle
+    fi
+    rt[i]=$((current_time - at[i]))
+    ct[i]=$((current_time + bt[i]))
+    tat[i]=$((ct[i] - at[i]))
+    wt[i]=$((tat[i] - bt[i]))
 
-  // 1. Sort by Arrival Time
-  processes.sort((a, b) => a.at - b.at);
+    current_time="\${ct[i]}"
+    total_tat=$((total_tat + tat[i]))
+    total_wt=$((total_wt + wt[i]))
+done
 
-  // 2. Schedule each process
-  let currentTime = 0;
-  let totalTat = 0;
-  let totalWt = 0;
+# 3. Output results table
+echo -e "\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT"
+for ((i = 0; i < n; i++)); do
+    echo -e "\${id[i]}\\t\${at[i]}\\t\${bt[i]}\\t\${ct[i]}\\t\${tat[i]}\\t\${wt[i]}\\t\${rt[i]}"
+done
 
-  for (const p of processes) {
-    if (currentTime < p.at) {
-      currentTime = p.at; // CPU idle
-    }
-    p.rt = currentTime - p.at;
-    p.ct = currentTime + p.bt;
-    p.tat = p.ct - p.at;
-    p.wt = p.tat - p.bt;
+avg_tat=$(awk "BEGIN {printf \\"%.2f\\", $total_tat / $n}")
+avg_wt=$(awk "BEGIN {printf \\"%.2f\\", $total_wt / $n}")
 
-    currentTime = p.ct;
-    totalTat += p.tat;
-    totalWt += p.wt;
-  }
-
-  // 3. Print Results Table
-  console.log('\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT');
-  for (const p of processes) {
-    console.log(\`\${p.id}\\t\${p.at}\\t\${p.bt}\\t\${p.ct}\\t\${p.tat}\\t\${p.wt}\\t\${p.rt}\`);
-  }
-  console.log(\`\\nAverage Turnaround Time: \${(totalTat / n).toFixed(2)}\`);
-  console.log(\`Average Waiting Time   : \${(totalWt / n).toFixed(2)}\`);
-}
-
-main();`,
+echo -e "\\nAverage Turnaround Time: $avg_tat"
+echo -e "Average Waiting Time   : $avg_wt"`,
 };

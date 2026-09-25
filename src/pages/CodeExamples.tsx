@@ -1,6 +1,6 @@
 /**
  * Code Examples page — dedicated section for exam-ready, memorable reference implementations.
- * All implementations take live user input in C, Python, and TypeScript.
+ * All implementations take live user input in C, Python, and Bash.
  */
 import { useMemo, useState } from 'react';
 import {
@@ -16,7 +16,7 @@ import {
 import Prism from 'prismjs';
 import 'prismjs/components/prism-c';
 import 'prismjs/components/prism-python';
-import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-bash';
 import type { LabState } from '../App';
 import type { PageId } from '../components/Sidebar';
 import { PageHeader } from '../components/Sidebar';
@@ -421,7 +421,7 @@ export function CodeExamples({ lab, onNavigate }: CodeExamplesProps) {
           <span>
             {langMeta.label === 'C' && 'Compile & run: gcc -o sched ' + meta.shortName.toLowerCase().replace(/[\s-]+/g, '_') + '.c && ./sched'}
             {langMeta.label === 'Python' && 'Run in terminal: python ' + meta.shortName.toLowerCase().replace(/[\s-]+/g, '_') + '.py'}
-            {langMeta.label === 'TypeScript' && 'Run with tsx / bun / node: npx tsx ' + meta.shortName.toLowerCase().replace(/[\s-]+/g, '_') + '.ts'}
+            {langMeta.label === 'Bash' && 'Run in terminal: bash ' + meta.shortName.toLowerCase().replace(/[\s-]+/g, '_') + '.sh'}
           </span>
           <span className="text-crt">Interactive user input enabled</span>
         </div>

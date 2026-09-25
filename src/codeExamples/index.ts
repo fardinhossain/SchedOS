@@ -38,7 +38,7 @@ export interface LanguageMeta {
 export const LANGUAGES: LanguageMeta[] = [
   { id: 'c', label: 'C', grammar: 'c', extension: 'c' },
   { id: 'python', label: 'Python', grammar: 'python', extension: 'py' },
-  { id: 'typescript', label: 'TypeScript', grammar: 'typescript', extension: 'ts' },
+  { id: 'bash', label: 'Bash', grammar: 'bash', extension: 'sh' },
 ];
 
 export function getCode(algorithm: AlgorithmId, language: SupportedLanguage): string {

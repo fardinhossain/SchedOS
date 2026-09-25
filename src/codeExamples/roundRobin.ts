@@ -199,122 +199,117 @@ for p in processes:
 print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
 print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-  typescript: `import * as readline from 'readline';
+  bash: `#!/usr/bin/env bash
+# Round Robin (RR) Scheduling
+# Rule: Execute processes using a fixed time quantum in cyclic FIFO order.
 
-/**
- * Round Robin (RR) Scheduling
- * Rule: Execute processes using a fixed time quantum in cyclic FIFO order.
- */
+read -p "Enter number of processes: " n
+if [ "$n" -le 0 ]; then exit 0; fi
 
-interface Process {
-  id: string;
-  at: number;
-  bt: number;
-  remainingBt: number;
-  firstStart: number;
-  ct?: number;
-  tat?: number;
-  wt?: number;
-  rt?: number;
-}
+declare -a id at bt remaining_bt ct tat wt rt first_start in_queue
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+for ((i = 0; i < n; i++)); do
+    read -p "Process $((i + 1)) (ID Arrival Burst): " p_id p_at p_bt
+    id[i]="$p_id"
+    at[i]="$p_at"
+    bt[i]="$p_bt"
+    remaining_bt[i]="$p_bt"
+    first_start[i]=-1
+    in_queue[i]=0
+done
 
-const ask = (q: string): Promise<string> =>
-  new Promise((resolve) => rl.question(q, resolve));
+read -p "Enter Time Quantum: " quantum
 
-async function main() {
-  const nStr = await ask('Enter number of processes: ');
-  const n = parseInt(nStr.trim(), 10);
-  const processes: Process[] = [];
+# 1. Sort initially by arrival time (Bubble Sort)
+for ((i = 0; i < n - 1; i++)); do
+    for ((j = 0; j < n - i - 1; j++)); do
+        if [ "\${at[j]}" -gt "\${at[j + 1]}" ]; then
+            temp="\${at[j]}"; at[j]="\${at[j + 1]}"; at[j + 1]="$temp"
+            temp="\${bt[j]}"; bt[j]="\${bt[j + 1]}"; bt[j + 1]="$temp"
+            temp="\${remaining_bt[j]}"; remaining_bt[j]="\${remaining_bt[j + 1]}"; remaining_bt[j + 1]="$temp"
+            temp="\${id[j]}"; id[j]="\${id[j + 1]}"; id[j + 1]="$temp"
+        fi
+    done
+done
 
-  for (let i = 0; i < n; i++) {
-    const input = await ask(\`Process \${i + 1} (ID Arrival Burst): \`);
-    const [id, atStr, btStr] = input.trim().split(/\\s+/);
-    const bt = parseInt(btStr, 10);
-    processes.push({
-      id,
-      at: parseInt(atStr, 10),
-      bt,
-      remainingBt: bt,
-      firstStart: -1,
-    });
-  }
+# Queue for FIFO execution
+declare -a queue
+front=0
+rear=0
 
-  const qStr = await ask('Enter Time Quantum: ');
-  const quantum = parseInt(qStr.trim(), 10);
-  rl.close();
+current_time="\${at[0]}"
+# Enqueue initial process
+queue[rear]=0
+rear=$((rear + 1))
+in_queue[0]=1
 
-  // Sort initially by arrival time
-  processes.sort((a, b) => a.at - b.at);
+completed=0
+total_tat=0
+total_wt=0
 
-  const queue: number[] = [];
-  const inQueue: boolean[] = new Array(n).fill(false);
+while [ "$completed" -lt "$n" ]; do
+    if [ "$front" -ge "$rear" ]; then
+        # Queue is empty: advance time to next unqueued arrived process
+        for ((i = 0; i < n; i++)); do
+            if [ "\${remaining_bt[i]}" -gt 0 ]; then
+                current_time="\${at[i]}"
+                queue[rear]="$i"
+                rear=$((rear + 1))
+                in_queue[i]=1
+                break
+            fi
+        done
+    fi
 
-  let currentTime = processes[0].at;
-  queue.push(0);
-  inQueue[0] = true;
+    curr="\${queue[front]}"
+    front=$((front + 1))
 
-  let completed = 0;
-  let totalTat = 0;
-  let totalWt = 0;
+    if [ "\${first_start[curr]}" -eq -1 ]; then
+        first_start[curr]="$current_time"
+        rt[curr]=$((current_time - at[curr]))
+    fi
 
-  while (completed < n) {
-    if (queue.length === 0) {
-      for (let i = 0; i < n; i++) {
-        if (processes[i].remainingBt > 0) {
-          currentTime = processes[i].at;
-          queue.push(i);
-          inQueue[i] = true;
-          break;
-        }
-      }
-    }
+    slice="\${remaining_bt[curr]}"
+    if [ "$slice" -gt "$quantum" ]; then
+        slice="$quantum"
+    fi
 
-    const idx = queue.shift()!;
-    const p = processes[idx];
+    remaining_bt[curr]=$((remaining_bt[curr] - slice))
+    current_time=$((current_time + slice))
 
-    if (p.firstStart === -1) {
-      p.firstStart = currentTime;
-      p.rt = currentTime - p.at;
-    }
+    # Enqueue any new processes that arrived while this one was running
+    for ((i = 0; i < n; i++)); do
+        if [ "\${in_queue[i]}" -eq 0 ] && [ "\${at[i]}" -le "$current_time" ] && [ "\${remaining_bt[i]}" -gt 0 ]; then
+            queue[rear]="$i"
+            rear=$((rear + 1))
+            in_queue[i]=1
+        fi
+    done
 
-    const slice = Math.min(quantum, p.remainingBt);
-    p.remainingBt -= slice;
-    currentTime += slice;
+    # If current process still has work left, requeue it
+    if [ "\${remaining_bt[curr]}" -gt 0 ]; then
+        queue[rear]="$curr"
+        rear=$((rear + 1))
+    else
+        ct[curr]="$current_time"
+        tat[curr]=$((ct[curr] - at[curr]))
+        wt[curr]=$((tat[curr] - bt[curr]))
 
-    // Enqueue newly arrived processes first
-    for (let i = 0; i < n; i++) {
-      if (!inQueue[i] && processes[i].at <= currentTime && processes[i].remainingBt > 0) {
-        queue.push(i);
-        inQueue[i] = true;
-      }
-    }
+        completed=$((completed + 1))
+        total_tat=$((total_tat + tat[curr]))
+        total_wt=$((total_wt + wt[curr]))
+    fi
+done
 
-    // Then requeue the preempted process if still unfinished
-    if (p.remainingBt > 0) {
-      queue.push(idx);
-    } else {
-      p.ct = currentTime;
-      p.tat = p.ct - p.at;
-      p.wt = p.tat - p.bt;
+# Output results table
+echo -e "\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT"
+for ((i = 0; i < n; i++)); do
+    echo -e "\${id[i]}\\t\${at[i]}\\t\${bt[i]}\\t\${ct[i]}\\t\${tat[i]}\\t\${wt[i]}\\t\${rt[i]}"
+done
 
-      completed++;
-      totalTat += p.tat;
-      totalWt += p.wt;
-    }
-  }
+avg_tat=$(awk "BEGIN {printf \\"%.2f\\", $total_tat / $n}")
+avg_wt=$(awk "BEGIN {printf \\"%.2f\\", $total_wt / $n}")
 
-  console.log('\\nPID\\tAT\\tBT\\tCT\\tTAT\\tWT\\tRT');
-  for (const p of processes) {
-    console.log(\`\${p.id}\\t\${p.at}\\t\${p.bt}\\t\${p.ct}\\t\${p.tat}\\t\${p.wt}\\t\${p.rt}\`);
-  }
-  console.log(\`\\nAverage Turnaround Time: \${(totalTat / n).toFixed(2)}\`);
-  console.log(\`Average Waiting Time   : \${(totalWt / n).toFixed(2)}\`);
-}
-
-main();`,
+echo -e "\\nAverage Turnaround Time: $avg_tat"
+echo -e "Average Waiting Time   : $avg_wt"`,
 };
