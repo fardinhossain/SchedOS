@@ -132,7 +132,7 @@ for p in processes:
 print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
 print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-  bash: `#!/usr/bin/env bash
+  bash: `#!/bin/bash
 # Priority Scheduling — Non-Preemptive
 # Rule: Pick available process with highest priority (lowest number), run to completion.
 # Convention: Lower priority number = Higher priority (1 beats 4).

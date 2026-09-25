@@ -117,7 +117,7 @@ for p in processes:
 print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
 print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-  bash: `#!/usr/bin/env bash
+  bash: `#!/bin/bash
 # First Come First Serve (FCFS) Scheduling
 # Rule: Execute processes in order of arrival time.
 

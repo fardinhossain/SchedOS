@@ -199,7 +199,7 @@ for p in processes:
 print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
 print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-  bash: `#!/usr/bin/env bash
+  bash: `#!/bin/bash
 # Round Robin (RR) Scheduling
 # Rule: Execute processes using a fixed time quantum in cyclic FIFO order.
 

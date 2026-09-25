@@ -148,7 +148,7 @@ for p in processes:
 print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
 print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-  bash: `#!/usr/bin/env bash
+  bash: `#!/bin/bash
 # Shortest Remaining Time First (SRTF) — Preemptive SJF
 # Rule: At each time tick, pick the available process with the shortest remaining time.
 

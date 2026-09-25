@@ -131,7 +131,7 @@ for p in processes:
 print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
 print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-  bash: `#!/usr/bin/env bash
+  bash: `#!/bin/bash
 # Shortest Job First (SJF) — Non-Preemptive
 # Rule: Among all arrived processes, pick the one with the shortest burst time.
 

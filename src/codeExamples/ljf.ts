@@ -131,7 +131,7 @@ for p in processes:
 print(f"\\nAverage Turnaround Time: {total_tat / n:.2f}")
 print(f"Average Waiting Time   : {total_wt / n:.2f}")`,
 
-  bash: `#!/usr/bin/env bash
+  bash: `#!/bin/bash
 # Longest Job First (LJF) — Non-Preemptive
 # Rule: Among all arrived processes, pick the one with the longest burst time.
 
