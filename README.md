@@ -1,156 +1,153 @@
 # SchedOS — Interactive CPU Scheduling Laboratory
 
-**Visualize. Simulate. Understand.**
+<p align="center">
+  <strong>Visualize. Simulate. Understand.</strong><br>
+  An educational operating systems laboratory for simulating, visualizing, and comparing CPU scheduling algorithms in real-time.
+</p>
 
-An educational web application for visualizing, simulating and comparing CPU scheduling
-algorithms. Everything runs client-side; there is no backend and nothing is precomputed.
+<p align="center">
+  <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/TypeScript-5.0-3178c6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-v4-38bdf8?logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/Vitest-539_Tests_Passed-6e9f18?logo=vitest&logoColor=white" alt="Vitest Tests" />
+  <img src="https://img.shields.io/badge/Zero_Backend-100%25_Client_Side-success" alt="Zero Backend" />
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" />
+</p>
 
 ---
 
-## Running it
+## 🖥️ Dashboard Preview
+
+![SchedOS Dashboard](Assets/Dashboard.png)
+
+---
+
+## 🌟 Key Features
+
+- **🎓 Classroom Table Simulation**: Live dynamic simulation table that records remaining burst times with strike-through notation (e.g. `~5~ ~3~ 1`), mirroring university blackboard and manual exam problem-solving methods.
+- **🔄 Configurable Priority Polarity**: Easily switch between *"Lower value = Higher priority (1 is highest)"* and *"Higher value = Higher priority"*, supporting diverse textbook conventions worldwide.
+- **⏱️ Cycle-Accurate Gantt Timeline**: Progressive timeline chart displaying exact process completion boundaries only as each process finishes execution.
+- **⚡ Step-by-Step Playback Controller**: Full player controls (Play, Pause, Step Forward, Step Backward, Reset, and Speed Slider) with real-time CPU telemetry and register display.
+- **📊 Comparative Benchmarking**: Run up to 8 algorithms simultaneously on identical workloads and analyze waiting time, turnaround time, and context switches side by side.
+- **💻 Polyglot Code Reference (C, Python, Bash)**: Clean, exam-ready implementations taking live terminal user input in C, Python, and Bash.
+- **🧠 Interactive Learn Mode (Decision Quiz)**: Tests student comprehension by presenting real simulation states and asking what the CPU will dispatch next.
+- **🚀 100% Client-Side & Zero-Backend**: Built as a self-contained Single Page Application. Fast, completely private, and works offline.
+
+---
+
+## 📖 The Eight Scheduling Algorithms
+
+| # | Algorithm | Category | Selection Rule |
+|---|---|---|---|
+| 1 | **FCFS** (First-Come, First-Served) | Non-preemptive | Execute the process that arrives first in arrival order. |
+| 2 | **SJF** (Shortest Job First) | Non-preemptive | Select the available process with the shortest burst time. |
+| 3 | **LJF** (Longest Job First) | Non-preemptive | Select the available process with the longest burst time. |
+| 4 | **Priority (Non-Preemptive)** | Non-preemptive | Select the highest-priority available process and run to completion. |
+| 5 | **SRTF** (Shortest Remaining Time First) | Preemptive | At each tick, execute the process with the shortest remaining time. |
+| 6 | **LRTF** (Longest Remaining Time First) | Preemptive | At each tick, execute the process with the longest remaining time. |
+| 7 | **Round Robin (RR)** | Preemptive | Cyclic time-sliced FIFO execution using a configurable quantum $q$. |
+| 8 | **Priority (Preemptive)** | Preemptive | Select by priority, immediately preempting if a higher-priority job arrives. |
+
+---
+
+## 🚀 Running SchedOS
+
+### Prerequisites
+- Node.js (v18 or higher recommended)
+- npm, pnpm, or yarn
+
+### Commands
 
 ```bash
-npm install
-npm run dev      # dev server at http://localhost:5173
-npm run build    # type-check + single-file production build into dist/
-npm run test     # 537 engine tests
+npm install       # Install project dependencies
+npm run dev       # Start Vite development server at http://localhost:5173
+npm run test      # Run Vitest suite (539 automated engine tests)
+npm run build     # Type-check + compile single-file production build into dist/
 ```
 
-`npm run build` emits a **single self-contained `dist/index.html`** (via
-`vite-plugin-singlefile`) — copy that one file anywhere and it works offline.
+> **Single-File Distribution**: `npm run build` emits a **single self-contained `dist/index.html`** (via `vite-plugin-singlefile`). You can distribute or open this single file anywhere without needing a web server or backend.
 
 ---
 
-## The eight algorithms
+## 📐 Architecture
 
-| | Algorithm | Category | Rule |
-|---|---|---|---|
-| 1 | **FCFS** | Non-preemptive | Execute the process that arrives first |
-| 2 | **SJF** | Non-preemptive | Select the available process with the shortest burst time |
-| 3 | **LJF** | Non-preemptive | Select the available process with the longest burst time |
-| 4 | **Priority** | Non-preemptive | Highest-priority available process, run to completion |
-| 5 | **SRTF** | Preemptive | Execute the available process with the shortest remaining time |
-| 6 | **LRTF** | Preemptive | Execute the available process with the longest remaining time |
-| 7 | **Round Robin** | Preemptive | Fixed time quantum, cyclic FIFO order |
-| 8 | **Priority** | Preemptive | Select by priority, preempting on a better arrival |
-
----
-
-## Architecture
-
-The scheduling engine is **plain TypeScript with no React dependency**, which is what allows it
-to be unit-tested in complete isolation from the interface.
+The scheduling engine is written in **pure TypeScript with zero React or DOM dependencies**, allowing it to be unit-tested in complete isolation from the interface.
 
 ```
 src/
-├── algorithms/          # one selection rule per file, all returning SchedulingResult
-├── engine/
-│   ├── scheduler.ts     # the three shared runners (non-preemptive, preemptive, round robin)
-│   ├── metrics.ts       # derives EVERY reported number from the emitted timeline
-│   ├── timeline.ts      # turns a result into replayable simulation frames
-│   ├── validation.ts    # input validation, returns all issues at once
-│   └── comparison.ts    # multi-algorithm comparison + generated observations
-├── codeExamples/        # 8 algorithms × 3 languages = 24 reference implementations
-├── components/          # UI primitives and instruments
-├── pages/               # Home, Visualizer, Compare, Algorithms, Learn, About
-├── types/scheduling.ts  # shared data model
-├── data/examples.ts     # 7 prebuilt datasets
-└── test/                # Vitest suite
+├── algorithms/          # Pure scheduler functions returning SchedulingResult
+│   ├── fcfs.ts, sjf.ts, ljf.ts, srtf.ts, lrtf.ts, roundRobin.ts, ...
+├── engine/              # Core simulation & calculation engine
+│   ├── scheduler.ts     # Runners: non-preemptive, preemptive, round-robin
+│   ├── metrics.ts       # Derives CT, TAT, WT, RT, utilization from timeline
+│   ├── timeline.ts      # Turns execution traces into replayable animation frames
+│   ├── validation.ts    # Comprehensive input validation
+│   └── comparison.ts    # Multi-algorithm benchmark comparison engine
+├── codeExamples/        # Reference code implementations (C, Python, Bash)
+├── components/          # UI components (Gantt, Table Simulation, CPU registers, controls)
+├── pages/               # Dashboard, Visualizer, Compare, Algorithms, Code, Learn, About
+├── types/scheduling.ts  # Shared domain models and interfaces
+├── data/examples.ts     # Curated process sets
+└── test/                # Vitest unit test suite (539 tests)
 ```
 
-### The governing design rule
-
-**The Gantt timeline is the single source of truth.** Algorithms emit a timeline; `metrics.ts`
-then derives completion, turnaround, waiting and response times *from that timeline*. No
-algorithm computes its own metrics. This makes the classic "chart disagrees with the table" bug
-structurally impossible rather than merely unlikely..
+### The Governing Design Rule
+**The Gantt timeline is the single source of truth.** Algorithms emit an execution timeline; `metrics.ts` derives completion ($CT$), turnaround ($TAT$), waiting ($WT$), and response times ($RT$) *strictly from that timeline*. No algorithm computes its own metrics, eliminating any discrepancy between charts and tables.
 
 ---
 
-## Engine conventions
+## ⚙️ Engine Conventions
 
-These are stated explicitly because every number on screen depends on them.
-
-- **Priority: a lower number means higher priority.** Priority 1 outranks priority 4.
-- **The schedule starts at the first arrival.** Total elapsed time runs from the earliest arrival
-  to the final completion. Time before any process exists is *not* counted as CPU idleness,
-  because the CPU had nothing it could have run.
-- **Ties are broken deterministically:** the algorithm's own key first, then earlier arrival time,
-  then the lower process number (compared naturally, so `P2` precedes `P10`). Identical input
-  always produces an identical schedule.
-- **Round Robin queue ordering:** a process arriving at the *exact* instant a quantum expires is
-  enqueued **before** the preempted process is requeued. Getting this backwards is the most
-  common bug in student implementations, and it has a dedicated test.
-- **Preemptive algorithms are evaluated every time unit.** This is what makes LRTF correct: a
-  running process's remaining time shrinks, so it can stop being the longest mid-burst. Adjacent
-  same-process segments are then merged for readability — except in Round Robin, where every
-  quantum segment stays visible.
+- **Priority Conventions**: Fully configurable. Supports both *Lower number = Higher priority* (default, e.g. 1 is highest) and *Higher number = Higher priority*.
+- **Schedule Start**: Total elapsed time runs from the earliest arrival to the final completion. Time before any process exists is not counted as CPU idleness.
+- **Deterministic Tie-Breaking**: The algorithm's selection key first, then earlier arrival time, then natural process ID order (`P2` precedes `P10`).
+- **Round Robin Queue Ordering**: A process arriving at the exact instant a quantum expires is enqueued **before** the preempted process is requeued.
+- **Tick-by-Tick Preemption**: Preemptive algorithms re-evaluate at every time unit, properly modeling dynamic remaining time changes.
 
 ---
 
-## Testing
+## 🧪 Testing & Verification
 
 ```bash
 npm run test
 ```
 
-537 tests in two layers:
-
-1. **Structural invariants**, run across every algorithm × every dataset — contiguous timeline
-   with no gaps or overlaps, no process running before it arrives, each process served exactly
-   its burst time, `busy + idle == total`, `TAT == CT − AT`, `WT == TAT − BT`,
-   `RT == firstStart − AT`, averages matching their per-process values, and utilization
-   consistent with busy/total.
-2. **Hand-computed cases** pinning exact timelines and metrics worked out on paper, so a
-   plausible-but-wrong schedule cannot pass.
-
-Plus the edge cases: single process, late-arriving single process, empty list, equal bursts,
-equal priorities, arrival mid-execution, idle gaps, large burst times, 50 processes, Round Robin
-with quantum 1 and with a quantum exceeding every burst, and missing priority values.
+The test suite contains **539 automated unit tests** across two layers:
+1. **Structural Invariants**: Run across every algorithm $\times$ every dataset — contiguous timeline with no gaps or overlaps, no process running before arrival, each process served its exact burst time, $\text{busy} + \text{idle} = \text{total}$, $TAT = CT - AT$, $WT = TAT - BT$, $RT = \text{firstStart} - AT$, and correct average metrics.
+2. **Hand-Computed Edge Cases**: Pinning exact paper-calculated schedules, arrival ties, CPU idle gaps, single-process sets, large burst durations, 50 processes, and extreme Round Robin quanta ($q=1$ and $q > \sum BT$).
 
 ---
 
-## The animated hero
+## 🎨 Design Philosophy
 
-The homepage hero is a **door**: a full-viewport entrance you pass through on the way into the
-laboratory. Text is stripped to the wordmark and the tagline, so the visual carries the page —
-a **live CPU die schematic** cycling through all eight algorithms, with processes flowing along
-buses into a pulsing core, a ready queue that reorders, and a Gantt strip drawing itself in real
-time. The bottom rail carries a door into each of the five sections plus a scroll cue;
-everything explanatory sits below the fold.
-
-It is driven by the **real engine** — `data/heroShowcase.ts` calls the same `SCHEDULERS`
-registry and `buildFrames` replayer the Visualizer uses, so the animation cannot drift out of
-sync with the algorithms it depicts. The "up next" marker on the ready queue is read from the
-scheduler's own event log rather than by re-implementing each selection rule in the UI.
-
-The showcase dataset is chosen, not arbitrary. Its priorities follow **neither arrival order nor
-burst order**, because priority ordered by arrival collapses Priority (Non-Preemptive) into
-FCFS, and priority ordered by burst collapses Priority (Preemptive) into SRTF. Decorrelating
-them yields eight visibly distinct timelines, with average waiting time spanning 3.00 (SRTF) to
-8.50 (LRTF) on identical work. The dataset is displayed on the homepage directly beneath the
-animation so the figures can be checked by hand.
-
-The animation stops when the tab is hidden, when it scrolls out of view, and while hovered;
-`prefers-reduced-motion` replaces it with a static final-state diagram.
-
-## Design
-
-A "Retro-Future Operating System Laboratory" identity: 1980s terminal + engineering laboratory +
-technical blueprint + modern information design. Warm bone canvas, near-black instrument
-surfaces, and CRT green / signal orange / machine yellow used as *semantic state signals* rather
-than decoration. Deliberately contains no purple and does not use blue as a primary colour.
-
-Accessibility: process state is carried by icon, border and text label as well as colour;
-Gantt blocks are focusable and individually labelled; focus rings are always visible; the
-simulation has keyboard shortcuts (`Space` play/pause, `→` step, `R` reset); and
-`prefers-reduced-motion` disables animation.
+A cohesive **"Retro-Future Operating System Laboratory"** identity: 1980s terminal aesthetic + engineering laboratory + technical blueprint + modern data visualization.
+- High-contrast dark instrument consoles (`bg-ink`) with scanlines texture.
+- Semantic state signals using CRT green (`#58c472`), signal orange (`#ff7043`), electric teal (`#39a0a8`), and machine yellow (`#e5b93f`).
+- Full keyboard shortcuts support (`Space` to play/pause, `→` to step forward, `←` to step backward, `R` to reset).
 
 ---
 
-## Stack
+## 🛠️ Tech Stack
 
-React · TypeScript · Vite · Tailwind CSS · Recharts · Prism · Lucide · Vitest
+- **Frontend**: React 19, TypeScript
+- **Styling**: Tailwind CSS v4
+- **Build Tool**: Vite, `vite-plugin-singlefile`
+- **Charts**: Recharts
+- **Icons**: Lucide React
+- **Syntax Highlighting**: PrismJS (C, Python, Bash)
+- **Testing**: Vitest
 
-The 24 code samples in the viewer are **educational reference implementations only** — they are
-displayed, never executed. The simulator always runs the TypeScript engine in `src/algorithms`.
+---
+
+## 👨‍💻 Author
+
+**Made by Fardin Hossain**
+
+- GitHub: [@fardinhossain](https://github.com/fardinhossain)
+- Email: iamfardin.swe@gmail.com
+
+---
+
+## 📄 License
+
+This project is open-source and available under the [MIT License](LICENSE).
