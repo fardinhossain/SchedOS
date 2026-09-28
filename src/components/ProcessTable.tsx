@@ -277,11 +277,6 @@ export function ProcessTable({
         </table>
       </div>
 
-      {showPriority && (
-        <p className="tabular text-[10px] text-muted-2">
-          Convention: a LOWER priority number means HIGHER priority.
-        </p>
-      )}
 
       {/* Form-level validation */}
       {formIssues.length > 0 && (
