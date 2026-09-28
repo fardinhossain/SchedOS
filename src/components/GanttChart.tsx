@@ -58,7 +58,8 @@ export function GanttChart({
   // Blocks are positioned as a PERCENTAGE of the span rather than in absolute
   // pixels. The track therefore fills its container exactly at any width — no
   // dead strip after the final block — while long timelines still scroll.
-  const totalWidth = span * pxPerUnit;
+  const trackPadding = compact ? 24 : 32;
+  const totalWidth = span * pxPerUnit + trackPadding;
   const pct = (units: number): string => `${(units / span) * 100}%`;
 
   // Process boundary points: timeline start time (e.g. 0) and every block's end time.
@@ -86,7 +87,7 @@ export function GanttChart({
   return (
     <div className="relative min-w-0">
       <div ref={scrollRef} className="thin-scroll overflow-x-auto overflow-y-hidden pb-1">
-        <div style={{ width: totalWidth, minWidth: '100%' }}>
+        <div style={{ width: totalWidth, minWidth: '100%' }} className="px-3 sm:px-4">
           {/* Start-time markers along the top edge */}
           <div className="relative h-3" aria-hidden="true">
             {displayedTicks.map((t) => (
