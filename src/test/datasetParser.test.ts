@@ -263,5 +263,39 @@ P4 3 4 3
     const invalidRes = parseDatasetText('Just some random text with no numbers');
     expect(invalidRes.success).toBe(false);
   });
+
+  it('correctly parses bulleted key-value process definitions (e.g. from Word or notes)', () => {
+    const bulletedText = `P1: Arrival Time = 0, Burst Time = 7
+•  P2: Arrival Time = 1, Burst Time = 4
+•  P3: Arrival Time = 2, Burst Time = 3
+•  P4: Arrival Time = 3, Burst Time = 2`;
+
+    const res = parseDatasetText(bulletedText);
+    expect(res.success).toBe(true);
+    expect(res.processes).toHaveLength(4);
+    expect(res.processes).toEqual([
+      { id: 'P1', arrivalTime: 0, burstTime: 7 },
+      { id: 'P2', arrivalTime: 1, burstTime: 4 },
+      { id: 'P3', arrivalTime: 2, burstTime: 3 },
+      { id: 'P4', arrivalTime: 3, burstTime: 2 },
+    ]);
+  });
+
+  it('correctly parses bulleted and numbered lists with priorities and colons', () => {
+    const text = `• P1: Arrival Time: 2, Burst Time: 3, Priority: 2
+• P2: Arrival Time: 3, Burst Time: 2, Priority: 1
+• P3: Arrival Time: 9, Burst Time: 4, Priority: 3
+1. P4: Arrival Time: 10, Burst Time: 1, Priority: 2
+- P5: Arrival Time: 12, Burst Time: 2, Priority: 1`;
+
+    const res = parseDatasetText(text);
+    expect(res.success).toBe(true);
+    expect(res.processes).toHaveLength(5);
+    expect(res.processes[0]).toEqual({ id: 'P1', arrivalTime: 2, burstTime: 3, priority: 2 });
+    expect(res.processes[1]).toEqual({ id: 'P2', arrivalTime: 3, burstTime: 2, priority: 1 });
+    expect(res.processes[2]).toEqual({ id: 'P3', arrivalTime: 9, burstTime: 4, priority: 3 });
+    expect(res.processes[3]).toEqual({ id: 'P4', arrivalTime: 10, burstTime: 1, priority: 2 });
+    expect(res.processes[4]).toEqual({ id: 'P5', arrivalTime: 12, burstTime: 2, priority: 1 });
+  });
 });
 

@@ -20,20 +20,42 @@ export interface ParseResult {
 
 /** Check if a line is likely a header row. */
 function isHeaderLine(line: string): boolean {
+  // If line contains key-value assignments like "AT=0", "Arrival Time = 0", "BT:5", "Burst Time: 4", it is a process line, NOT a header!
+  if (
+    /(?:at|arrival(?:\s*time)?)\s*[:=]?\s*(?:is|at)?\s*\d+/i.test(line) &&
+    /(?:bt|burst(?:\s*time)?)\s*[:=]?\s*(?:is|of)?\s*\d+/i.test(line)
+  ) {
+    return false;
+  }
+
   const clean = line.replace(/[|\t,;:]/g, ' ').toLowerCase().trim();
   const words = clean.split(/\s+/);
   const headerTerms = ['pid', 'process', 'job', 'p_id', 'arrival', 'burst', 'at', 'bt', 'pri', 'priority', 'time'];
   const matches = words.filter((w) => headerTerms.includes(w));
+
+  // A header row should not contain multiple numeric data values (like "P1 0 5 2" or "1 0 5")
+  const numbers = words.filter((w) => /^\d+$/.test(w));
+  if (numbers.length >= 2) {
+    return false;
+  }
+
   // If at least 2 words match standard header terms, it is a header row
   return matches.length >= 2;
 }
 
-/** Clean OCR noise like pipes, brackets, and extra punctuation. */
+/** Clean OCR noise like pipes, brackets, bullets, and extra punctuation. */
 function cleanLine(raw: string): string {
-  return raw
-    .trim()
-    .replace(/^[|\-_+=~`*#\s]+|[|\-_+=~`*#\s]+$/g, '')
+  let line = raw.trim();
+  // Strip leading/trailing table pipes, bullets, and border characters
+  line = line
+    .replace(
+      /^[|\-_+=~`*#\s\u2022\u2023\u25e6\u2043\u2219\u25cf\u25cb\u25aa\u25ab\u2013\u2014·•>]+|[|\-_+=~`*#\s\u2022\u2023\u25e6\u2043\u2219\u25cf\u25cb\u25aa\u25ab\u2013\u2014·•>]+$/gu,
+      ''
+    )
     .trim();
+  // Strip list prefixes like "1. ", "1) ", "(1) ", "[1] " if followed by a process ID or label or number
+  line = line.replace(/^\(?\d+[.)\]]\s+(?=[A-Za-z]|\d)/, '').trim();
+  return line;
 }
 
 interface ParsedProcessWithRaw extends ProcessInput {
@@ -141,15 +163,17 @@ function parseLine(line: string, defaultIndex: number): ParsedProcessWithRaw | n
     return null;
   }
 
-  // 1. Try Key-Value format: "P1 AT=0 BT=5 PRI=2", "Process P1 at:0, bt:5, pri:1"
-  const kvIdMatch = trimmed.match(/(?:(?:PID|Process|Job)\s*[:=]?\s*|^)([A-Za-z]\w*|\d+)/i);
-  const kvAtMatch = trimmed.match(/(?:AT|Arrival(?:\s*Time)?)\s*[:=]\s*(\d+)/i);
-  const kvBtMatch = trimmed.match(/(?:BT|Burst(?:\s*Time)?)\s*[:=]\s*(\d+)/i);
-  const kvPriMatch = trimmed.match(/(?:PRI|Priority)\s*[:=]\s*(\d+)/i);
+  // 1. Try Key-Value format: "P1 AT=0 BT=5 PRI=2", "Process P1 at:0, bt:5, pri:1", "P1: Arrival Time = 0, Burst Time = 7"
+  const kvIdMatch = trimmed.match(
+    /(?:(?:PID|Process|Job)\s*[:=\-]?\s*|^)(?!(?:Arrival|AT|Burst|BT|Priority|PRI)\b)([A-Za-z]\w*|\d+)/i
+  );
+  const kvAtMatch = trimmed.match(/(?:AT|Arrival(?:\s*Time)?)\s*[:=]?\s*(?:is|at)?\s*(\d+)/i);
+  const kvBtMatch = trimmed.match(/(?:BT|Burst(?:\s*Time)?)\s*[:=]?\s*(?:is|of)?\s*(\d+)/i);
+  const kvPriMatch = trimmed.match(/(?:PRI|Priority)\s*[:=]?\s*(?:is|of)?\s*(\d+)/i);
 
   if (kvAtMatch && kvBtMatch) {
-    const id = kvIdMatch ? kvIdMatch[1].toUpperCase() : `P${defaultIndex}`;
-    const formattedId = id.startsWith('P') ? id : `P${id}`;
+    const rawId = kvIdMatch ? kvIdMatch[1].trim() : `P${defaultIndex}`;
+    const formattedId = cleanPid(rawId);
     const pri = kvPriMatch ? parseInt(kvPriMatch[1], 10) : undefined;
     return {
       id: formattedId,
