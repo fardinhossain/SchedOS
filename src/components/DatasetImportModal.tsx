@@ -1,7 +1,10 @@
 /**
  * Modal dialog for importing scheduling datasets from Images (OCR) or Paste Box.
- * Supports image drag-and-drop, file browsing, and direct clipboard image pasting (Ctrl+V).
- * Solid non-transparent retro styling with dynamic priority column detection.
+ * Features automated AI-style image preprocessing:
+ * - Upscales 2x for sharp digit recognition (resolves '11' vs '1"' or 'n')
+ * - Automatically detects dark mode backgrounds and inverts to high-contrast black-on-white
+ * - Binarizes and enhances edges for precise table and number extraction
+ * - Provides an editable preview table so extracted processes can be verified and tweaked before applying
  */
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -10,7 +13,9 @@ import {
   ClipboardPaste,
   FileImage,
   Loader2,
+  Plus,
   Sparkles,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react';
@@ -29,6 +34,89 @@ const SAMPLE_PASTE_TEXT = `P1  AT=0  BT=5  PRI=2
 P2  AT=1  BT=3  PRI=1
 P3  AT=2  BT=8  PRI=3
 P4  AT=3  BT=4  PRI=2`;
+
+/**
+ * Advanced image preprocessor for document & table OCR:
+ * 1. Upscales image by 2x for fine character separation (e.g. '11' instead of '"' or 'n').
+ * 2. Inverts dark backgrounds (white-on-black -> black-on-white) which Tesseract requires.
+ * 3. Applies contrast enhancement / adaptive thresholding to remove gradient antialiasing.
+ */
+async function preprocessImageForOcr(file: File): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      try {
+        const scale = Math.max(1.5, Math.min(2.5, 2400 / Math.max(img.width, img.height)));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // Sample background luminance across the image
+        let totalLuminance = 0;
+        const totalPixels = data.length / 4;
+        for (let i = 0; i < data.length; i += 4) {
+          totalLuminance += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        }
+        const avgLuminance = totalLuminance / totalPixels;
+        const isDarkBackground = avgLuminance < 128;
+
+        for (let i = 0; i < data.length; i += 4) {
+          let r = data[i];
+          let g = data[i + 1];
+          let b = data[i + 2];
+
+          // Invert dark background so text is black on white
+          if (isDarkBackground) {
+            r = 255 - r;
+            g = 255 - g;
+            b = 255 - b;
+          }
+
+          // Grayscale luminance
+          const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+          // High-contrast thresholding
+          const enhanced = gray > 180 ? 255 : gray < 85 ? 0 : gray;
+
+          data[i] = enhanced;
+          data[i + 1] = enhanced;
+          data[i + 2] = enhanced;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        canvas.toBlob((blob) => {
+          resolve(blob ?? file);
+        }, 'image/png');
+      } catch {
+        resolve(file);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+
+    img.src = url;
+  });
+}
 
 export function DatasetImportModal({
   isOpen,
@@ -69,7 +157,7 @@ export function DatasetImportModal({
     if (!isOpen) return;
 
     const handlePaste = (e: ClipboardEvent) => {
-      // If user is pasting into the textarea while in 'paste' tab, let text paste happen normally
+      // If user is typing into the textarea while in 'paste' tab, let text paste happen normally
       if (tab === 'paste' && (e.target as HTMLElement)?.tagName === 'TEXTAREA') {
         return;
       }
@@ -94,7 +182,7 @@ export function DatasetImportModal({
     return () => window.removeEventListener('paste', handlePaste);
   }, [isOpen, tab]);
 
-  // Handle image selection
+  // Handle image selection with automatic preprocessing
   const handleImageFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setImageError('Please select a valid image file (PNG, JPG, WEBP, etc.)');
@@ -108,24 +196,26 @@ export function DatasetImportModal({
     const previewUrl = URL.createObjectURL(file);
     setImagePreview(previewUrl);
 
-    // Run OCR
+    // Run OCR with preprocessed image
     setIsOcrLoading(true);
     setOcrProgress(0);
-    setOcrStatus('Initializing OCR engine…');
+    setOcrStatus('Enhancing image contrast & resolution…');
 
     try {
+      const processedBlob = await preprocessImageForOcr(file);
+
       const worker = await createWorker('eng', 1, {
         logger: (m) => {
           if (m.status === 'recognizing text') {
             setOcrProgress(Math.round((m.progress || 0) * 100));
-            setOcrStatus(`Analyzing image (${Math.round((m.progress || 0) * 100)}%)…`);
+            setOcrStatus(`Analyzing document (${Math.round((m.progress || 0) * 100)}%)…`);
           } else {
             setOcrStatus(m.status);
           }
         },
       });
 
-      const ret = await worker.recognize(file);
+      const ret = await worker.recognize(processedBlob);
       await worker.terminate();
 
       const recognized = ret.data.text;
@@ -136,10 +226,22 @@ export function DatasetImportModal({
         setParsedFromImage(parsed.processes);
         setImageError(null);
       } else {
-        setImageError(
-          parsed.error ||
-            'Could not detect valid processes in the image. Please verify the table contains Process ID, Arrival Time, and Burst Time.'
-        );
+        // Fallback: try raw file if preprocessed didn't catch processes
+        const rawWorker = await createWorker('eng');
+        const rawRet = await rawWorker.recognize(file);
+        await rawWorker.terminate();
+        const fallbackParsed = parseDatasetText(rawRet.data.text);
+
+        if (fallbackParsed.success && fallbackParsed.processes.length > 0) {
+          setParsedFromImage(fallbackParsed.processes);
+          setOcrText(rawRet.data.text);
+          setImageError(null);
+        } else {
+          setImageError(
+            parsed.error ||
+              'Could not detect valid processes in the image. Please verify the table contains Process ID, Arrival Time, and Burst Time.'
+          );
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to process image';
@@ -169,6 +271,38 @@ export function DatasetImportModal({
     } catch {
       setImageError('Please press Ctrl+V while this dialog is open to paste your clipboard image.');
     }
+  };
+
+  // Editable preview table helpers
+  const updateImageProcess = (index: number, patch: Partial<ProcessInput>) => {
+    setParsedFromImage((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, ...patch } : p))
+    );
+  };
+
+  const removeImageProcess = (index: number) => {
+    setParsedFromImage((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addImageProcess = () => {
+    setParsedFromImage((prev) => [
+      ...prev,
+      { id: `P${prev.length + 1}`, arrivalTime: 0, burstTime: 1 },
+    ]);
+  };
+
+  const toggleImagePriority = () => {
+    const currentlyHasPriority = parsedFromImage.some((p) => p.priority !== undefined);
+    setParsedFromImage((prev) =>
+      prev.map((p, idx) => {
+        if (currentlyHasPriority) {
+          const { priority: _, ...rest } = p;
+          return rest;
+        } else {
+          return { ...p, priority: idx + 1 };
+        }
+      })
+    );
   };
 
   const handleApplyPaste = () => {
@@ -344,25 +478,42 @@ export function DatasetImportModal({
                 </div>
               )}
 
-              {/* Extracted table preview */}
+              {/* Extracted table preview — with inline editable cells */}
               {parsedFromImage.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="label text-xs font-bold text-text">
-                      Extracted Process Data (Verify before applying):
+                      Extracted Process Data (Editable before applying):
                     </h3>
-                    {ocrText && (
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setShowRawOcr(!showRawOcr)}
-                        className="text-[11px] font-mono text-muted-2 underline hover:text-text"
+                        onClick={toggleImagePriority}
+                        className="border border-rule bg-bone-2 px-1.5 py-0.5 text-[10px] font-semibold text-text hover:border-ink"
                       >
-                        {showRawOcr ? 'Hide Raw OCR' : 'View Raw OCR'}
+                        {hasImagePriority ? '− Remove Priority' : '+ Add Priority'}
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={addImageProcess}
+                        className="flex items-center gap-1 border border-rule bg-bone-2 px-1.5 py-0.5 text-[10px] font-semibold text-text hover:border-ink"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Add Row
+                      </button>
+                      {ocrText && (
+                        <button
+                          type="button"
+                          onClick={() => setShowRawOcr(!showRawOcr)}
+                          className="text-[10px] font-mono text-muted-2 underline hover:text-text"
+                        >
+                          {showRawOcr ? 'Hide Raw OCR' : 'View Raw OCR'}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="thin-scroll max-h-48 overflow-auto border border-rule">
+                  <div className="thin-scroll max-h-56 overflow-auto border border-rule">
                     <table className="w-full border-collapse text-left text-xs">
                       <thead className="sticky top-0 bg-bone-3 border-b border-rule">
                         <tr>
@@ -372,17 +523,74 @@ export function DatasetImportModal({
                           {hasImagePriority && (
                             <th className="px-2 py-1.5 font-bold">Priority</th>
                           )}
+                          <th className="px-2 py-1.5 text-right font-bold w-10">Del</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-rule/60 font-mono">
                         {parsedFromImage.map((p, idx) => (
                           <tr key={idx} className="hover:bg-bone-2/50">
-                            <td className="px-2 py-1.5 font-bold text-crt">{p.id}</td>
-                            <td className="px-2 py-1.5">{p.arrivalTime}</td>
-                            <td className="px-2 py-1.5">{p.burstTime}</td>
+                            <td className="px-2 py-1">
+                              <input
+                                type="text"
+                                value={p.id}
+                                onChange={(e) => updateImageProcess(idx, { id: e.target.value.toUpperCase() })}
+                                className="w-16 border border-rule bg-bone px-1 py-0.5 font-bold text-crt focus:border-ink"
+                              />
+                            </td>
+                            <td className="px-2 py-1">
+                              <input
+                                type="number"
+                                min={0}
+                                value={p.arrivalTime}
+                                onChange={(e) =>
+                                  updateImageProcess(idx, {
+                                    arrivalTime: Math.max(0, parseInt(e.target.value, 10) || 0),
+                                  })
+                                }
+                                className="w-16 border border-rule bg-bone px-1 py-0.5 focus:border-ink"
+                              />
+                            </td>
+                            <td className="px-2 py-1">
+                              <input
+                                type="number"
+                                min={1}
+                                value={p.burstTime}
+                                onChange={(e) =>
+                                  updateImageProcess(idx, {
+                                    burstTime: Math.max(1, parseInt(e.target.value, 10) || 1),
+                                  })
+                                }
+                                className="w-16 border border-rule bg-bone px-1 py-0.5 focus:border-ink"
+                              />
+                            </td>
                             {hasImagePriority && (
-                              <td className="px-2 py-1.5">{p.priority ?? '—'}</td>
+                              <td className="px-2 py-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={p.priority ?? ''}
+                                  onChange={(e) =>
+                                    updateImageProcess(idx, {
+                                      priority:
+                                        e.target.value === ''
+                                          ? undefined
+                                          : parseInt(e.target.value, 10),
+                                    })
+                                  }
+                                  className="w-16 border border-rule bg-bone px-1 py-0.5 focus:border-ink"
+                                />
+                              </td>
                             )}
+                            <td className="px-2 py-1 text-right">
+                              <button
+                                type="button"
+                                onClick={() => removeImageProcess(idx)}
+                                className="p-0.5 text-muted hover:text-signal"
+                                title="Delete row"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>

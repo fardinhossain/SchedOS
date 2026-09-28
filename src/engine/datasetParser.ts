@@ -36,15 +36,52 @@ function cleanLine(raw: string): string {
     .trim();
 }
 
-/** Safely parses a token into a number, handling OCR edge cases (e.g. 'O'/'o' for 0, stray brackets). */
-function parseCleanNumber(token: string | undefined): number {
+/** Safely parses a token into a number, handling OCR edge cases (e.g. '1"' or 'n' for 11, 'O'/'o' for 0, stray brackets). */
+export function parseCleanNumber(token: string | undefined): number {
   if (token === undefined) return NaN;
-  const t = token.trim();
-  if (/^[Oo]$/.test(t)) return 0;
+  let t = token.trim();
+  if (!t) return NaN;
+
+  // Standalone OCR confusions
+  if (/^[OoQq]$/.test(t)) return 0;
+  if (/^[lI|!]$/.test(t)) return 1;
+  if (/^(?:1["'’]|["'’]1|ll|1l|l1|II|1I|\|\||n)$/i.test(t)) return 11;
+  if (/^["'’]{1,2}$/.test(t)) return 11;
+  if (/^[\[(]3$/.test(t)) return 6; // OCR confusion where '6' becomes '[3' or '(3'
+
+  // If token ends with quote e.g. 1" -> 11, 1' -> 11
+  if (/^(\d+)["'’]+$/.test(t)) {
+    const m = t.match(/^(\d+)["'’]+$/);
+    if (m) {
+      return parseInt(m[1] + '1', 10);
+    }
+  }
+
+  // Replace vertical-bar, pipe, lowercase l or uppercase I surrounded by digits with 1
+  t = t
+    .replace(/(?<=\d)[lI|!](?=\d)/g, '1')
+    .replace(/^[lI|!](?=\d)/g, '1')
+    .replace(/(?<=\d)[lI|!]$/g, '1');
+
   if (/^-?\d+$/.test(t)) return parseInt(t, 10);
+
   const stripped = t.replace(/[^\d-]/g, '');
   if (!stripped) return NaN;
   return parseInt(stripped, 10);
+}
+
+/** Cleans PID, correcting common OCR misreadings like Pa -> P4 */
+function cleanPid(rawId: string): string {
+  let id = rawId.toUpperCase();
+  if (id === 'PA') return 'P4';
+  if (id === 'PL' || id === 'PI') return 'P1';
+  if (id === 'PO') return 'P0';
+  if (id === 'PB') return 'P8';
+  if (id === 'PS') return 'P5';
+  if (!id.startsWith('P')) {
+    id = `P${id}`;
+  }
+  return id;
 }
 
 /**
@@ -105,14 +142,14 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
     const isFirstTokenId = /^[A-Za-z]\w*$/i.test(tokens[0]);
 
     if (isFirstTokenId) {
-      const id = tokens[0].toUpperCase();
+      const id = cleanPid(tokens[0]);
       const at = parseCleanNumber(tokens[1]);
       const bt = parseCleanNumber(tokens[2]);
       const pri = tokens[3] !== undefined ? parseCleanNumber(tokens[3]) : undefined;
 
       if (!isNaN(at) && !isNaN(bt)) {
         return {
-          id: id.startsWith('P') || isNaN(Number(id.slice(1))) ? id : id,
+          id,
           arrivalTime: Math.max(0, at),
           burstTime: Math.max(1, bt),
           ...(pri !== undefined && !isNaN(pri) ? { priority: pri } : {}),

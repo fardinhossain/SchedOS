@@ -95,6 +95,26 @@ P2, 2, 4
     expect(res.processes[0].priority).toBeUndefined();
   });
 
+  it('corrects common OCR misreadings such as 1" -> 11, [3 -> 6, and Pa -> P4', () => {
+    const noisyOcr = `
+PID Arrival Time Burst Time Priority
+P1 0 9 3
+P2 1 5 1
+P3 2 3 4
+Pa 4 7 2
+P5 [3 2 5
+P6 8 [3 2
+P7 1" 4 1
+    `;
+    const res = parseDatasetText(noisyOcr);
+    expect(res.success).toBe(true);
+    expect(res.processes).toHaveLength(7);
+    expect(res.processes[3].id).toBe('P4');
+    expect(res.processes[4]).toEqual({ id: 'P5', arrivalTime: 6, burstTime: 2, priority: 5 });
+    expect(res.processes[5]).toEqual({ id: 'P6', arrivalTime: 8, burstTime: 6, priority: 2 });
+    expect(res.processes[6]).toEqual({ id: 'P7', arrivalTime: 11, burstTime: 4, priority: 1 });
+  });
+
   it('handles empty or invalid inputs gracefully', () => {
     const emptyRes = parseDatasetText('');
     expect(emptyRes.success).toBe(false);
@@ -103,3 +123,4 @@ P2, 2, 4
     expect(invalidRes.success).toBe(false);
   });
 });
+
