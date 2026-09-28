@@ -36,6 +36,17 @@ function cleanLine(raw: string): string {
     .trim();
 }
 
+/** Safely parses a token into a number, handling OCR edge cases (e.g. 'O'/'o' for 0, stray brackets). */
+function parseCleanNumber(token: string | undefined): number {
+  if (token === undefined) return NaN;
+  const t = token.trim();
+  if (/^[Oo]$/.test(t)) return 0;
+  if (/^-?\d+$/.test(t)) return parseInt(t, 10);
+  const stripped = t.replace(/[^\d-]/g, '');
+  if (!stripped) return NaN;
+  return parseInt(stripped, 10);
+}
+
 /**
  * Attempts to parse a single line into a ProcessInput.
  */
@@ -54,11 +65,12 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
   if (kvAtMatch && kvBtMatch) {
     const id = kvIdMatch ? kvIdMatch[1].toUpperCase() : `P${defaultIndex}`;
     const formattedId = id.startsWith('P') ? id : `P${id}`;
+    const pri = kvPriMatch ? parseInt(kvPriMatch[1], 10) : undefined;
     return {
       id: formattedId,
       arrivalTime: parseInt(kvAtMatch[1], 10),
       burstTime: Math.max(1, parseInt(kvBtMatch[1], 10)),
-      priority: kvPriMatch ? parseInt(kvPriMatch[1], 10) : defaultIndex,
+      ...(pri !== undefined && !isNaN(pri) ? { priority: pri } : {}),
     };
   }
 
@@ -71,11 +83,12 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
   if (nlAtMatch && nlBtMatch) {
     const id = nlIdMatch ? nlIdMatch[1].toUpperCase() : `P${defaultIndex}`;
     const formattedId = id.startsWith('P') ? id : `P${id}`;
+    const pri = nlPriMatch ? parseInt(nlPriMatch[1], 10) : undefined;
     return {
       id: formattedId,
       arrivalTime: parseInt(nlAtMatch[1], 10),
       burstTime: Math.max(1, parseInt(nlBtMatch[1], 10)),
-      priority: nlPriMatch ? parseInt(nlPriMatch[1], 10) : defaultIndex,
+      ...(pri !== undefined && !isNaN(pri) ? { priority: pri } : {}),
     };
   }
 
@@ -93,24 +106,24 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
 
     if (isFirstTokenId) {
       const id = tokens[0].toUpperCase();
-      const at = parseInt(tokens[1], 10);
-      const bt = parseInt(tokens[2], 10);
-      const pri = tokens[3] !== undefined ? parseInt(tokens[3], 10) : undefined;
+      const at = parseCleanNumber(tokens[1]);
+      const bt = parseCleanNumber(tokens[2]);
+      const pri = tokens[3] !== undefined ? parseCleanNumber(tokens[3]) : undefined;
 
       if (!isNaN(at) && !isNaN(bt)) {
         return {
           id: id.startsWith('P') || isNaN(Number(id.slice(1))) ? id : id,
           arrivalTime: Math.max(0, at),
           burstTime: Math.max(1, bt),
-          priority: pri !== undefined && !isNaN(pri) ? pri : defaultIndex,
+          ...(pri !== undefined && !isNaN(pri) ? { priority: pri } : {}),
         };
       }
     } else {
       // First token is a number: e.g. "1 0 5 2" (PID=1, AT=0, BT=5, PRI=2) or "0 5" (AT=0, BT=5)
-      const num0 = parseInt(tokens[0], 10);
-      const num1 = parseInt(tokens[1], 10);
-      const num2 = tokens[2] !== undefined ? parseInt(tokens[2], 10) : undefined;
-      const num3 = tokens[3] !== undefined ? parseInt(tokens[3], 10) : undefined;
+      const num0 = parseCleanNumber(tokens[0]);
+      const num1 = parseCleanNumber(tokens[1]);
+      const num2 = tokens[2] !== undefined ? parseCleanNumber(tokens[2]) : undefined;
+      const num3 = tokens[3] !== undefined ? parseCleanNumber(tokens[3]) : undefined;
 
       // 4 numbers: PID AT BT PRI (e.g. 1 0 5 2)
       if (
@@ -132,7 +145,14 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
 
       // 3 numbers: could be (PID AT BT) or (AT BT PRI)
       if (tokens.length === 3 && !isNaN(num0) && !isNaN(num1) && num2 !== undefined && !isNaN(num2)) {
-        // If first number looks like a sequence 1, 2, 3... treat as PID AT BT
+        // If first number looks like a sequence 1, 2, 3... treat as PID AT BT (no priority)
+        if (num0 === defaultIndex || num0 <= 50) {
+          return {
+            id: `P${num0}`,
+            arrivalTime: Math.max(0, num1),
+            burstTime: Math.max(1, num2),
+          };
+        }
         return {
           id: `P${defaultIndex}`,
           arrivalTime: Math.max(0, num0),
@@ -147,7 +167,6 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
           id: `P${defaultIndex}`,
           arrivalTime: Math.max(0, num0),
           burstTime: Math.max(1, num1),
-          priority: defaultIndex,
         };
       }
     }
