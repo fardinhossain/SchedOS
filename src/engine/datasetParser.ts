@@ -36,7 +36,7 @@ function cleanLine(raw: string): string {
     .trim();
 }
 
-/** Safely parses a token into a number, handling OCR edge cases (e.g. '1"' or 'n' for 11, 'O'/'o' for 0, stray brackets). */
+/** Safely parses a token into a number, handling OCR edge cases (e.g. '1"' or 'n' for 11, 'O'/'o' for 0, stray brackets, letter confusion). */
 export function parseCleanNumber(token: string | undefined): number {
   if (token === undefined) return NaN;
   let t = token.trim();
@@ -48,6 +48,15 @@ export function parseCleanNumber(token: string | undefined): number {
   if (/^(?:1["'’]|["'’]1|ll|1l|l1|II|1I|\|\||n)$/i.test(t)) return 11;
   if (/^["'’]{1,2}$/.test(t)) return 11;
   if (/^[\[(]3$/.test(t)) return 6; // OCR confusion where '6' becomes '[3' or '(3'
+  if (/^[aA]$/.test(t)) return 4;
+  if (/^[sS]$/.test(t)) return 5;
+  if (/^[bB]$/.test(t)) return 8;
+  if (/^[gq]$/.test(t)) return 9;
+
+  // Bracket and quote edge cases (e.g. 1] -> 41, 4] -> 41, a] -> 41)
+  if (/^1[\])}]$/.test(t)) return 41;
+  if (/^[4aA][\])}]$/.test(t)) return 41;
+  if (/^2[\])}]$/.test(t)) return 21;
 
   // If token ends with quote e.g. 1" -> 11, 1' -> 11
   if (/^(\d+)["'’]+$/.test(t)) {
@@ -55,6 +64,32 @@ export function parseCleanNumber(token: string | undefined): number {
     if (m) {
       return parseInt(m[1] + '1', 10);
     }
+  }
+
+  // Letters replacing digits in numbers (e.g. a1 -> 41, 1a -> 14, s3 -> 53)
+  if (/^[aA](\d+)$/.test(t)) {
+    return parseInt('4' + t.slice(1), 10);
+  }
+  if (/^(\d+)[aA]$/.test(t)) {
+    return parseInt(t.slice(0, -1) + '4', 10);
+  }
+  if (/^[sS](\d+)$/.test(t)) {
+    return parseInt('5' + t.slice(1), 10);
+  }
+  if (/^(\d+)[sS]$/.test(t)) {
+    return parseInt(t.slice(0, -1) + '5', 10);
+  }
+  if (/^[bB](\d+)$/.test(t)) {
+    return parseInt('8' + t.slice(1), 10);
+  }
+  if (/^(\d+)[bB]$/.test(t)) {
+    return parseInt(t.slice(0, -1) + '8', 10);
+  }
+  if (/^[oO](\d+)$/.test(t)) {
+    return parseInt(t.slice(1), 10);
+  }
+  if (/^(\d+)[oO]$/.test(t)) {
+    return parseInt(t.slice(0, -1) + '0', 10);
   }
 
   // Replace vertical-bar, pipe, lowercase l or uppercase I surrounded by digits with 1
@@ -70,13 +105,13 @@ export function parseCleanNumber(token: string | undefined): number {
   return parseInt(stripped, 10);
 }
 
-/** Cleans PID, correcting common OCR misreadings like Pa -> P4 */
+/** Cleans PID, correcting common OCR misreadings like Pa -> P4, PB/PG -> P8 */
 function cleanPid(rawId: string): string {
   let id = rawId.toUpperCase();
   if (id === 'PA') return 'P4';
   if (id === 'PL' || id === 'PI') return 'P1';
   if (id === 'PO') return 'P0';
-  if (id === 'PB') return 'P8';
+  if (id === 'PB' || id === 'PG') return 'P8';
   if (id === 'PS') return 'P5';
   if (!id.startsWith('P')) {
     id = `P${id}`;
@@ -135,14 +170,15 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
     .replace(/[|\t,;]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  const tokens = normalized.split(' ');
+  const tokens = normalized.split(' ').filter((t) => t.length > 0);
 
   if (tokens.length >= 2) {
+    const rawIdToken = tokens[0].replace(/^[\[(\{"']+|[\])\}"':,]+$/g, '');
     // Check if first token is PID (e.g. "P1", "p2", "Job1", "A") or a number
-    const isFirstTokenId = /^[A-Za-z]\w*$/i.test(tokens[0]);
+    const isFirstTokenId = /^[A-Za-z]\w*$/i.test(rawIdToken);
 
     if (isFirstTokenId) {
-      const id = cleanPid(tokens[0]);
+      const id = cleanPid(rawIdToken);
       const at = parseCleanNumber(tokens[1]);
       const bt = parseCleanNumber(tokens[2]);
       const pri = tokens[3] !== undefined ? parseCleanNumber(tokens[3]) : undefined;
@@ -213,6 +249,48 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
 }
 
 /**
+ * Reconciles process IDs when the majority follow sequential P1, P2, P3...
+ * Corrects OCR misrecognitions (such as 'P8' parsed as 'P22' or 'P23' due to bracket artifacts).
+ */
+export function reconcileProcessSequence(processes: ProcessInput[]): ProcessInput[] {
+  if (processes.length < 3) return processes;
+
+  const pidNumbers = processes.map((p) => {
+    const m = p.id.match(/^P(\d+)$/i);
+    return m ? parseInt(m[1], 10) : null;
+  });
+
+  const validPidCount = pidNumbers.filter((n) => n !== null).length;
+  // If at least 60% of the rows follow P{number} format
+  if (validPidCount / processes.length < 0.6) {
+    return processes;
+  }
+
+  return processes.map((p, i) => {
+    const currentNum = pidNumbers[i];
+    const prevNum = i > 0 ? pidNumbers[i - 1] : null;
+    const nextNum = i < processes.length - 1 ? pidNumbers[i + 1] : null;
+
+    // Case 1: Sandwiched between P(k-1) and P(k+1) e.g. P7, [corrupted/P22], P9 -> P8
+    if (prevNum !== null && nextNum !== null && nextNum - prevNum === 2) {
+      const expected = prevNum + 1;
+      if (currentNum !== expected) {
+        return { ...p, id: `P${expected}` };
+      }
+    }
+
+    // Case 2: Consistent sequence P1, P2, P3... where prevNum === i and currentNum is out of order
+    if (prevNum !== null && prevNum === i && currentNum !== i + 1) {
+      if (nextNum === null || nextNum === i + 2) {
+        return { ...p, id: `P${i + 1}` };
+      }
+    }
+
+    return p;
+  });
+}
+
+/**
  * Parses multi-line scheduling dataset text into ProcessInput[].
  */
 export function parseDatasetText(text: string): ParseResult {
@@ -259,9 +337,12 @@ export function parseDatasetText(text: string): ParseResult {
     };
   }
 
+  // Reconcile and recover sequence numbers (e.g. P1..P7, [corrupted/P22], P9 -> P8)
+  const reconciled = reconcileProcessSequence(processes);
+
   // Ensure unique process IDs
   const seenIds = new Set<string>();
-  const deduplicatedProcesses = processes.map((p, idx) => {
+  const deduplicatedProcesses = reconciled.map((p, idx) => {
     let finalId = p.id;
     if (seenIds.has(finalId)) {
       finalId = `${p.id}_${idx + 1}`;

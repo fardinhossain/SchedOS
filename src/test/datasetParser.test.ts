@@ -115,6 +115,74 @@ P7 1" 4 1
     expect(res.processes[6]).toEqual({ id: 'P7', arrivalTime: 11, burstTime: 4, priority: 1 });
   });
 
+  it('accurately parses the 15-process table from media_1790593203307 with OCR artifacts and leading zeros', () => {
+    const rawOcr = `
+This one is more difficult.
+
+PID                                   Arrival Time                   Burst Time                     Priority (3
+P1                                    10                             37                             18
+P2                                    12                             16                             07
+P3                                    15                             28                             13
+P4                                    17                             09                             02
+P5                                    20                             41                             21
+P6                                    23                             14                             05
+P7                                    26                             33                             11
+P8                                    29                             07                             01
+P9                                    32                             24                             16
+P10                                   35                             18                             08
+P11                                   38                             45                             04
+P12                                   42                             12                             19
+P13                                   46                             31                             06
+P14                                   49                             20                             10
+P15                                   53                             27                             03
+    `;
+    const res = parseDatasetText(rawOcr);
+    expect(res.success).toBe(true);
+    expect(res.processes).toHaveLength(15);
+    expect(res.processes).toEqual([
+      { id: 'P1', arrivalTime: 10, burstTime: 37, priority: 18 },
+      { id: 'P2', arrivalTime: 12, burstTime: 16, priority: 7 },
+      { id: 'P3', arrivalTime: 15, burstTime: 28, priority: 13 },
+      { id: 'P4', arrivalTime: 17, burstTime: 9, priority: 2 },
+      { id: 'P5', arrivalTime: 20, burstTime: 41, priority: 21 },
+      { id: 'P6', arrivalTime: 23, burstTime: 14, priority: 5 },
+      { id: 'P7', arrivalTime: 26, burstTime: 33, priority: 11 },
+      { id: 'P8', arrivalTime: 29, burstTime: 7, priority: 1 },
+      { id: 'P9', arrivalTime: 32, burstTime: 24, priority: 16 },
+      { id: 'P10', arrivalTime: 35, burstTime: 18, priority: 8 },
+      { id: 'P11', arrivalTime: 38, burstTime: 45, priority: 4 },
+      { id: 'P12', arrivalTime: 42, burstTime: 12, priority: 19 },
+      { id: 'P13', arrivalTime: 46, burstTime: 31, priority: 6 },
+      { id: 'P14', arrivalTime: 49, burstTime: 20, priority: 10 },
+      { id: 'P15', arrivalTime: 53, burstTime: 27, priority: 3 },
+    ]);
+  });
+
+  it('reconciles bracketed PID artifacts and repairs corrupted tokens like a1 -> 41', () => {
+    const rawOcrWithArtifacts = `
+PID Arrival Time Burst Time Priority
+P1 10 37 18
+P2 12 16 07
+P3 15 28 13
+P4 17 09 02
+P5 20 a1 21
+P6 23 14 05
+P7 26 33 1"
+[22:] 29 07 01
+P9 32 24 16
+P10 35 18 08
+    `;
+    const res = parseDatasetText(rawOcrWithArtifacts);
+    expect(res.success).toBe(true);
+    expect(res.processes).toHaveLength(10);
+    // P5 burst time a1 -> 41
+    expect(res.processes[4]).toEqual({ id: 'P5', arrivalTime: 20, burstTime: 41, priority: 21 });
+    // P7 priority 1" -> 11
+    expect(res.processes[6]).toEqual({ id: 'P7', arrivalTime: 26, burstTime: 33, priority: 11 });
+    // [22:] between P7 and P9 is reconciled to P8
+    expect(res.processes[7]).toEqual({ id: 'P8', arrivalTime: 29, burstTime: 7, priority: 1 });
+  });
+
   it('handles empty or invalid inputs gracefully', () => {
     const emptyRes = parseDatasetText('');
     expect(emptyRes.success).toBe(false);

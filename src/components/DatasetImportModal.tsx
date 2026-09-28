@@ -19,7 +19,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { createWorker } from 'tesseract.js';
+import { createWorker, PSM } from 'tesseract.js';
 import type { ProcessInput } from '../types/scheduling';
 import { parseDatasetText } from '../engine/datasetParser';
 
@@ -36,10 +36,69 @@ P3  AT=2  BT=8  PRI=3
 P4  AT=3  BT=4  PRI=2`;
 
 /**
+ * 5-tap separable Gaussian unsharp mask filter on canvas pixel data.
+ * Sharpens character strokes and resolves stroke collisions (e.g. '11', '41', 'P8').
+ */
+function applyUnsharpMask(data: Uint8ClampedArray, width: number, height: number, amount: number = 1.0) {
+  const total = width * height;
+  const gray = new Float32Array(total);
+  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+    gray[j] = data[i];
+  }
+
+  // 5-tap Gaussian weights (radius ~ 1.0)
+  const k0 = 0.06136;
+  const k1 = 0.24477;
+  const k2 = 0.38774;
+
+  const temp = new Float32Array(total);
+  // Horizontal pass
+  for (let y = 0; y < height; y++) {
+    const row = y * width;
+    for (let x = 0; x < width; x++) {
+      const xm2 = Math.max(0, x - 2);
+      const xm1 = Math.max(0, x - 1);
+      const xp1 = Math.min(width - 1, x + 1);
+      const xp2 = Math.min(width - 1, x + 2);
+      temp[row + x] =
+        k0 * (gray[row + xm2] + gray[row + xp2]) +
+        k1 * (gray[row + xm1] + gray[row + xp1]) +
+        k2 * gray[row + x];
+    }
+  }
+
+  // Vertical pass + unsharp difference addition
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      const ym2 = Math.max(0, y - 2);
+      const ym1 = Math.max(0, y - 1);
+      const yp1 = Math.min(height - 1, y + 1);
+      const yp2 = Math.min(height - 1, y + 2);
+      const blurred =
+        k0 * (temp[ym2 * width + x] + temp[yp2 * width + x]) +
+        k1 * (temp[ym1 * width + x] + temp[yp1 * width + x]) +
+        k2 * temp[y * width + x];
+
+      const orig = gray[y * width + x];
+      const diff = orig - blurred;
+      let val = orig;
+      if (Math.abs(diff) > 2) {
+        val = orig + diff * amount;
+      }
+      const clamped = Math.max(0, Math.min(255, Math.round(val)));
+      const idx = (y * width + x) * 4;
+      data[idx] = clamped;
+      data[idx + 1] = clamped;
+      data[idx + 2] = clamped;
+    }
+  }
+}
+
+/**
  * Advanced image preprocessor for document & table OCR:
- * 1. Upscales image by 2x for fine character separation (e.g. '11' instead of '"' or 'n').
- * 2. Inverts dark backgrounds (white-on-black -> black-on-white) which Tesseract requires.
- * 3. Applies contrast enhancement / adaptive thresholding to remove gradient antialiasing.
+ * 1. Upscales image to optimal character height (scale ~3.0x - 3.4x).
+ * 2. Inverts dark backgrounds (white-on-black -> black-on-white) required by Tesseract.
+ * 3. Applies 5-tap Gaussian unsharp masking for sharp character boundary detection.
  */
 async function preprocessImageForOcr(file: File): Promise<Blob> {
   return new Promise((resolve) => {
@@ -49,7 +108,7 @@ async function preprocessImageForOcr(file: File): Promise<Blob> {
     img.onload = () => {
       URL.revokeObjectURL(url);
       try {
-        const scale = Math.max(1.5, Math.min(2.5, 2400 / Math.max(img.width, img.height)));
+        const scale = Math.max(2.0, Math.min(3.5, 2600 / Math.max(img.width, img.height)));
         const canvas = document.createElement('canvas');
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
@@ -88,14 +147,16 @@ async function preprocessImageForOcr(file: File): Promise<Blob> {
             b = 255 - b;
           }
 
-          // Grayscale luminance with smooth antialiasing preserved
-          // Never apply harsh thresholding which damages the gap between adjacent digits like '11'
+          // Grayscale luminance
           const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 
           data[i] = gray;
           data[i + 1] = gray;
           data[i + 2] = gray;
         }
+
+        // Apply unsharp mask to crisp edges and separate digits (e.g. '11', '41', 'P8')
+        applyUnsharpMask(data, canvas.width, canvas.height, 1.0);
 
         ctx.putImageData(imageData, 0, 0);
 
@@ -214,6 +275,7 @@ export function DatasetImportModal({
       });
 
       await worker.setParameters({
+        tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
         preserve_interword_spaces: '1',
       });
 
