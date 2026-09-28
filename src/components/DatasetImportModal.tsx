@@ -1,6 +1,7 @@
 /**
  * Modal dialog for importing scheduling datasets from Images (OCR) or Paste Box.
- * Works seamlessly in both Visualizer and Compare sections.
+ * Supports image drag-and-drop, file browsing, and direct clipboard image pasting (Ctrl+V).
+ * Solid non-transparent retro styling with dynamic priority column detection.
  */
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -37,9 +38,9 @@ export function DatasetImportModal({
 }: DatasetImportModalProps) {
   const [tab, setTab] = useState<'image' | 'paste'>(initialTab);
 
-  // Paste Box state
-  const [pastedText, setPastedText] = useState(SAMPLE_PASTE_TEXT);
-  const [parsedFromPaste, setParsedFromPaste] = useState(parseDatasetText(SAMPLE_PASTE_TEXT));
+  // Paste Box state — empty by default, no pre-arranged text
+  const [pastedText, setPastedText] = useState('');
+  const [parsedFromPaste, setParsedFromPaste] = useState(parseDatasetText(''));
 
   // Image Upload state
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -62,6 +63,36 @@ export function DatasetImportModal({
   useEffect(() => {
     setParsedFromPaste(parseDatasetText(pastedText));
   }, [pastedText]);
+
+  // Handle clipboard paste for images (e.g. screenshot pasted with Ctrl+V)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      // If user is pasting into the textarea while in 'paste' tab, let text paste happen normally
+      if (tab === 'paste' && (e.target as HTMLElement)?.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            setTab('image');
+            handleImageFile(file);
+            return;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [isOpen, tab]);
 
   // Handle image selection
   const handleImageFile = async (file: File) => {
@@ -118,6 +149,28 @@ export function DatasetImportModal({
     }
   };
 
+  const handlePasteImageFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.read) {
+        setImageError('Direct clipboard read requires permission or Ctrl+V in your browser.');
+        return;
+      }
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imageType = item.types.find((t) => t.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const file = new File([blob], 'clipboard-image.png', { type: imageType });
+          handleImageFile(file);
+          return;
+        }
+      }
+      setImageError('No image found in clipboard. Please copy an image or take a screenshot first.');
+    } catch {
+      setImageError('Please press Ctrl+V while this dialog is open to paste your clipboard image.');
+    }
+  };
+
   const handleApplyPaste = () => {
     if (parsedFromPaste.success && parsedFromPaste.processes.length > 0) {
       onApply(parsedFromPaste.processes);
@@ -134,16 +187,19 @@ export function DatasetImportModal({
 
   if (!isOpen) return null;
 
+  const hasPastePriority = parsedFromPaste.processes.some((p) => p.priority !== undefined);
+  const hasImagePriority = parsedFromImage.some((p) => p.priority !== undefined);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="import-dataset-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
     >
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col border border-ink bg-bone-1 text-text shadow-2xl">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col border-2 border-ink bg-bone text-text shadow-2xl">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-rule bg-bone-3/80 px-4 py-2.5">
+        <header className="flex items-center justify-between border-b border-rule bg-bone-3 px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="h-2.5 w-2.5 bg-crt" />
             <h2 id="import-dataset-title" className="label text-sm font-bold text-text">
@@ -153,7 +209,7 @@ export function DatasetImportModal({
           <button
             type="button"
             onClick={onClose}
-            className="border border-rule/60 p-1 text-muted-2 transition-colors hover:border-ink hover:text-text"
+            className="border border-rule p-1 text-muted-2 transition-colors hover:border-ink hover:text-text"
             aria-label="Close dialog"
           >
             <X className="h-4 w-4" />
@@ -168,12 +224,12 @@ export function DatasetImportModal({
             className={[
               'flex flex-1 items-center justify-center gap-2 border-r border-rule py-2.5 transition-colors',
               tab === 'image'
-                ? 'bg-bone-1 font-bold text-crt border-b-2 border-b-crt'
+                ? 'bg-bone font-bold text-crt border-b-2 border-b-crt'
                 : 'text-muted-2 hover:bg-bone-3 hover:text-text',
             ].join(' ')}
           >
             <FileImage className="h-4 w-4" />
-            From Image (OCR)
+            From Image (OCR & Paste)
           </button>
           <button
             type="button"
@@ -181,7 +237,7 @@ export function DatasetImportModal({
             className={[
               'flex flex-1 items-center justify-center gap-2 py-2.5 transition-colors',
               tab === 'paste'
-                ? 'bg-bone-1 font-bold text-crt border-b-2 border-b-crt'
+                ? 'bg-bone font-bold text-crt border-b-2 border-b-crt'
                 : 'text-muted-2 hover:bg-bone-3 hover:text-text',
             ].join(' ')}
           >
@@ -191,7 +247,7 @@ export function DatasetImportModal({
         </div>
 
         {/* Body */}
-        <div className="thin-scroll flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="thin-scroll flex-1 overflow-y-auto bg-bone p-4 space-y-4">
           {tab === 'image' ? (
             /* ── Image Upload Mode ────────────────────────────────── */
             <div className="space-y-4">
@@ -204,7 +260,7 @@ export function DatasetImportModal({
                     handleImageFile(e.dataTransfer.files[0]);
                   }
                 }}
-                className="flex cursor-pointer flex-col items-center justify-center border-2 border-dashed border-rule/80 bg-bone-2/50 p-6 text-center transition-colors hover:border-ink hover:bg-bone-2"
+                className="flex cursor-pointer flex-col items-center justify-center border-2 border-dashed border-ink/40 bg-bone-2 p-6 text-center transition-colors hover:border-ink hover:bg-bone-3"
               >
                 <input
                   ref={fileInputRef}
@@ -217,40 +273,51 @@ export function DatasetImportModal({
                 />
                 <Upload className="mb-2 h-7 w-7 text-muted-2" />
                 <p className="text-xs font-bold text-text">
-                  Drag & Drop an image containing a process table, or{' '}
-                  <span className="text-crt underline">Browse File</span>
+                  Drag & Drop an image, or <span className="text-crt underline">browse files</span>
                 </p>
-                <p className="mt-1 font-mono text-[11px] text-muted-2">
-                  Supports PNG, JPG, JPEG, WEBP · Exam questions, lecture slides & tables
+                <p className="mt-1 text-[11px] text-muted-2">
+                  Or paste directly from clipboard using <kbd className="border border-rule bg-bone px-1 py-0.5 font-mono text-[10px] text-text font-bold">Ctrl+V</kbd>
                 </p>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePasteImageFromClipboard();
+                  }}
+                  className="mt-3 flex items-center gap-1.5 border border-ink bg-bone px-2.5 py-1 text-[11px] font-bold text-text transition-colors hover:bg-ink hover:text-bone"
+                >
+                  <ClipboardPaste className="h-3.5 w-3.5 text-crt" />
+                  Paste from Clipboard
+                </button>
               </div>
 
-              {/* Loading progress */}
+              {/* Progress bar */}
               {isOcrLoading && (
-                <div className="border border-rule bg-bone-2 p-3 font-mono text-xs space-y-2">
-                  <div className="flex items-center justify-between text-[11px] text-muted-2">
-                    <span className="flex items-center gap-1.5 font-bold text-text">
+                <div className="border border-rule bg-bone-2 p-3 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2 font-mono text-muted">
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-crt" />
                       {ocrStatus}
                     </span>
-                    <span>{ocrProgress}%</span>
+                    <span className="font-mono font-bold text-crt">{ocrProgress}%</span>
                   </div>
                   <div className="h-1.5 w-full overflow-hidden bg-bone-3">
                     <div
-                      className="h-full bg-crt transition-all duration-300"
+                      className="h-full bg-crt transition-all duration-200"
                       style={{ width: `${ocrProgress}%` }}
                     />
                   </div>
                 </div>
               )}
 
-              {/* Image preview & error */}
+              {/* File details & extracted count */}
               {imagePreview && (
-                <div className="flex items-start gap-3 border border-rule bg-bone-2/30 p-2.5">
+                <div className="flex items-center gap-3 border border-rule bg-bone-2 p-2.5">
                   <img
                     src={imagePreview}
                     alt="Uploaded table preview"
-                    className="max-h-24 max-w-[120px] rounded object-contain border border-rule"
+                    className="max-h-24 max-w-[120px] rounded border border-rule object-contain bg-white"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold truncate text-text">{imageFile?.name}</p>
@@ -302,7 +369,9 @@ export function DatasetImportModal({
                           <th className="px-2 py-1.5 font-bold">PID</th>
                           <th className="px-2 py-1.5 font-bold">Arrival Time (AT)</th>
                           <th className="px-2 py-1.5 font-bold">Burst Time (BT)</th>
-                          <th className="px-2 py-1.5 font-bold">Priority</th>
+                          {hasImagePriority && (
+                            <th className="px-2 py-1.5 font-bold">Priority</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-rule/60 font-mono">
@@ -311,7 +380,9 @@ export function DatasetImportModal({
                             <td className="px-2 py-1.5 font-bold text-crt">{p.id}</td>
                             <td className="px-2 py-1.5">{p.arrivalTime}</td>
                             <td className="px-2 py-1.5">{p.burstTime}</td>
-                            <td className="px-2 py-1.5">{p.priority ?? '—'}</td>
+                            {hasImagePriority && (
+                              <td className="px-2 py-1.5">{p.priority ?? '—'}</td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -345,15 +416,22 @@ export function DatasetImportModal({
 
               <textarea
                 id="dataset-textarea"
-                rows={6}
+                rows={5}
                 value={pastedText}
                 onChange={(e) => setPastedText(e.target.value)}
                 placeholder="Paste scheduling questions or table here, e.g.:&#10;P1  AT=0  BT=5  PRI=2&#10;P2  AT=1  BT=3  PRI=1&#10;P3  AT=2  BT=8  PRI=3"
                 className="w-full border border-rule bg-bone-2 p-2.5 font-mono text-xs text-text focus:border-ink focus:outline-none"
               />
 
-              {/* Status and preview */}
-              {parsedFromPaste.success ? (
+              {/* Status and preview table based on pasted text */}
+              {!pastedText.trim() ? (
+                <div className="flex flex-col items-center justify-center border border-dashed border-rule bg-bone-2/60 p-6 text-center text-xs text-muted-2">
+                  <p className="font-semibold text-text">Paste your scheduling data above to generate the process table</p>
+                  <p className="mt-1 text-[11px]">
+                    Supports space/tab separated values, CSV, Markdown tables, or key-value format (e.g. P1 AT=0 BT=5 PRI=2).
+                  </p>
+                </div>
+              ) : parsedFromPaste.success ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-crt">
                     <Check className="h-3.5 w-3.5" />
@@ -367,7 +445,9 @@ export function DatasetImportModal({
                           <th className="px-2 py-1.5 font-bold">PID</th>
                           <th className="px-2 py-1.5 font-bold">Arrival Time (AT)</th>
                           <th className="px-2 py-1.5 font-bold">Burst Time (BT)</th>
-                          <th className="px-2 py-1.5 font-bold">Priority</th>
+                          {hasPastePriority && (
+                            <th className="px-2 py-1.5 font-bold">Priority</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-rule/60 font-mono">
@@ -376,7 +456,9 @@ export function DatasetImportModal({
                             <td className="px-2 py-1.5 font-bold text-crt">{p.id}</td>
                             <td className="px-2 py-1.5">{p.arrivalTime}</td>
                             <td className="px-2 py-1.5">{p.burstTime}</td>
-                            <td className="px-2 py-1.5">{p.priority ?? '—'}</td>
+                            {hasPastePriority && (
+                              <td className="px-2 py-1.5">{p.priority ?? '—'}</td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -394,9 +476,9 @@ export function DatasetImportModal({
         </div>
 
         {/* Footer */}
-        <footer className="flex items-center justify-between border-t border-rule bg-bone-3/60 px-4 py-2.5">
+        <footer className="flex items-center justify-between border-t border-rule bg-bone-3 px-4 py-2.5">
           <p className="font-mono text-[11px] text-muted-2">
-            Tip: Process numbers and priorities are validated automatically.
+            Tip: Process IDs, arrival times, and burst times are validated automatically.
           </p>
           <div className="flex items-center gap-2">
             <button

@@ -107,25 +107,13 @@ export function ProcessTable({
             id="example-select"
             value={activeDataset}
             onChange={(e) => {
-              const val = e.target.value;
-              if (val === '__from_image__') {
-                setImportModalTab('image');
-                setImportModalOpen(true);
-              } else if (val === '__from_paste__') {
-                setImportModalTab('paste');
-                setImportModalOpen(true);
-              } else if (val) {
-                onLoadExample(val);
-              }
+              if (e.target.value) onLoadExample(e.target.value);
             }}
             className="w-full border border-rule bg-bone-2 px-2 py-1.5 font-mono text-xs focus:border-ink"
           >
             <option value="" disabled>
               Load example…
             </option>
-            <option value="__from_image__">From Image</option>
-            <option value="__from_paste__">From Paste Box</option>
-            <option disabled className="text-muted-2">──────────</option>
             {EXAMPLES.map((ex) => (
               <option key={ex.id} value={ex.id}>
                 {ex.name}
