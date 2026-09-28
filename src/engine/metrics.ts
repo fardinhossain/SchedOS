@@ -50,7 +50,35 @@ export const EMPTY_RESULT: SchedulingResult = {
   totalTime: 0,
   endTime: 0,
   startTime: 0,
+  contextSwitches: 0,
+  throughput: 0,
 };
+
+/**
+ * Counts context switches between non-idle processes across the Gantt timeline.
+ * Consecutive blocks belonging to the same process are treated as one continuous execution.
+ */
+export function countContextSwitches(gantt: GanttBlock[]): number {
+  let switches = 0;
+  let lastPid: string | null = null;
+  for (const block of gantt) {
+    if (block.processId !== IDLE_ID) {
+      if (lastPid !== null && block.processId !== lastPid) {
+        switches++;
+      }
+      lastPid = block.processId;
+    }
+  }
+  return switches;
+}
+
+/**
+ * Computes throughput as total processes completed divided by the total simulation span.
+ */
+export function calculateThroughput(processCount: number, totalTime: number): number {
+  if (totalTime <= 0 || processCount <= 0) return 0;
+  return round2(processCount / totalTime);
+}
 
 /**
  * Builds the uniform `SchedulingResult` every algorithm returns.
@@ -100,6 +128,9 @@ export function buildResult(
   const sum = (pick: (p: ProcessResult) => number): number =>
     processes.reduce((acc, p) => acc + pick(p), 0);
 
+  const contextSwitches = countContextSwitches(gantt);
+  const throughput = calculateThroughput(n, totalTime);
+
   return {
     gantt,
     processes: [...processes].sort((a, b) => compareIds(a.id, b.id)),
@@ -113,5 +144,7 @@ export function buildResult(
     totalTime,
     endTime,
     startTime,
+    contextSwitches,
+    throughput,
   };
 }

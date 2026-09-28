@@ -72,6 +72,11 @@ export interface SchedulingResult {
   endTime: number;
   /** Absolute instant the timeline begins (the earliest arrival). */
   startTime: number;
+
+  /** Number of context switches between processes. */
+  contextSwitches?: number;
+  /** Throughput: completed processes divided by total time. */
+  throughput?: number;
 }
 
 export type AlgorithmId =

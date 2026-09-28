@@ -6,12 +6,13 @@
  * confuse. Validation messages are inline, per cell, and announced to screen
  * readers.
  */
-import { useMemo } from 'react';
-import { AlertTriangle, Plus, Trash2, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { AlertTriangle, Camera, ClipboardPaste, Plus, Trash2, X } from 'lucide-react';
 import type { AlgorithmMeta, PriorityOrder, ProcessInput, ValidationIssue } from '../types/scheduling';
 import { issuesFor } from '../engine/validation';
 import { EXAMPLES } from '../data/examples';
 import { FieldLabel } from './Panel';
+import { DatasetImportModal } from './DatasetImportModal';
 
 interface ProcessTableProps {
   processes: ProcessInput[];
@@ -51,6 +52,8 @@ export function ProcessTable({
   onRun,
   disabled,
 }: ProcessTableProps) {
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importModalTab, setImportModalTab] = useState<'image' | 'paste'>('paste');
   const showPriority = algorithm.usesPriority;
   const showQuantum = algorithm.usesTimeQuantum;
   const formIssues = issues.filter((i) => i.row === null);
@@ -104,13 +107,25 @@ export function ProcessTable({
             id="example-select"
             value={activeDataset}
             onChange={(e) => {
-              if (e.target.value) onLoadExample(e.target.value);
+              const val = e.target.value;
+              if (val === '__from_image__') {
+                setImportModalTab('image');
+                setImportModalOpen(true);
+              } else if (val === '__from_paste__') {
+                setImportModalTab('paste');
+                setImportModalOpen(true);
+              } else if (val) {
+                onLoadExample(val);
+              }
             }}
             className="w-full border border-rule bg-bone-2 px-2 py-1.5 font-mono text-xs focus:border-ink"
           >
             <option value="" disabled>
               Load example…
             </option>
+            <option value="__from_image__">From Image</option>
+            <option value="__from_paste__">From Paste Box</option>
+            <option disabled className="text-muted-2">──────────</option>
             {EXAMPLES.map((ex) => (
               <option key={ex.id} value={ex.id}>
                 {ex.name}
@@ -307,6 +322,30 @@ export function ProcessTable({
         </button>
         <button
           type="button"
+          onClick={() => {
+            setImportModalTab('image');
+            setImportModalOpen(true);
+          }}
+          title="Import process table from an image using OCR"
+          className="flex items-center gap-1.5 border border-rule bg-bone-2 px-2.5 py-1.5 text-xs font-semibold transition-colors hover:border-ink hover:bg-bone-3"
+        >
+          <Camera aria-hidden="true" className="h-3.5 w-3.5 text-muted-2" />
+          From Image
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setImportModalTab('paste');
+            setImportModalOpen(true);
+          }}
+          title="Paste tabular text, CSV, or key-value processes"
+          className="flex items-center gap-1.5 border border-rule bg-bone-2 px-2.5 py-1.5 text-xs font-semibold transition-colors hover:border-ink hover:bg-bone-3"
+        >
+          <ClipboardPaste aria-hidden="true" className="h-3.5 w-3.5 text-muted-2" />
+          From Paste Box
+        </button>
+        <button
+          type="button"
           onClick={() => onChange([])}
           disabled={!processes.length}
           className="flex items-center gap-1.5 border border-rule bg-bone-2 px-2.5 py-1.5 text-xs font-semibold transition-colors hover:border-signal hover:text-signal disabled:cursor-not-allowed disabled:opacity-40"
@@ -323,6 +362,16 @@ export function ProcessTable({
           Run Simulation
         </button>
       </div>
+
+      <DatasetImportModal
+        isOpen={importModalOpen}
+        initialTab={importModalTab}
+        onClose={() => setImportModalOpen(false)}
+        onApply={(imported) => {
+          onChange(imported);
+          setImportModalOpen(false);
+        }}
+      />
     </div>
   );
 }

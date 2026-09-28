@@ -9,7 +9,7 @@
  * instead, which is far less confusing during a demonstration.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Zap } from 'lucide-react';
 import type { LabState } from '../App';
 import type { AlgorithmOptions, SchedulingResult } from '../types/scheduling';
 import { IDLE_ID } from '../types/scheduling';
@@ -25,8 +25,7 @@ import { CPUVisualizer } from '../components/CPUVisualizer';
 import { ReadyQueue } from '../components/ReadyQueue';
 import { SystemLog } from '../components/SystemLog';
 import { SimulationControls } from '../components/SimulationControls';
-import { MetricsTable } from '../components/MetricsTable';
-import { PerformanceCards, UtilizationGauge } from '../components/PerformanceCards';
+import { PerformanceSection } from '../components/PerformanceSection';
 import { EmptyState } from '../components/EmptyState';
 import { useSimulation, useSimulationShortcuts } from '../components/useSimulation';
 
@@ -87,11 +86,41 @@ export function Visualizer({ lab }: VisualizerProps) {
   const sim = useSimulation(result);
   useSimulationShortcuts(sim, result !== null);
 
+  const [performanceResult, setPerformanceResult] = useState<SchedulingResult | null>(null);
+  const [perfRanWith, setPerfRanWith] = useState<string>('');
+
+  const isPerformanceStale = performanceResult !== null && perfRanWith !== signature;
+
+  const handleGeneratePerformance = (): void => {
+    if (!valid) return;
+    const options: AlgorithmOptions = { timeQuantum, priorityOrder };
+    try {
+      const computed = SCHEDULERS[algorithm](processes, options);
+      setPerformanceResult(computed);
+      setPerfRanWith(signature);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Performance generation failed', error);
+    }
+  };
+
+  // Requirement 4: Automatic Performance Generation
+  // When a simulation run finishes (reaches completion):
+  // Automatically calculate and populate the Performance Table.
+  useEffect(() => {
+    if (sim.finished && result !== null) {
+      setPerformanceResult(result);
+      setPerfRanWith(ranWith || signature);
+    }
+  }, [sim.finished, result, ranWith, signature]);
+
   // Changing algorithm mid-view clears the old result rather than showing a
   // chart that no longer matches the selector.
   useEffect(() => {
     setResult(null);
     setRanWith('');
+    setPerformanceResult(null);
+    setPerfRanWith('');
   }, [algorithm]);
 
   const processIds = processes.map((p) => p.id);
@@ -127,8 +156,8 @@ export function Visualizer({ lab }: VisualizerProps) {
         </div>
       )}
 
-      {/* ── Input + performance ──────────────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,15rem)]">
+      {/* ── Input ────────────────────────────────────────────── */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
         <Panel
           title="Algorithm"
           code="SEL-01"
@@ -157,19 +186,6 @@ export function Visualizer({ lab }: VisualizerProps) {
             onRun={run}
             disabled={!valid}
           />
-        </Panel>
-
-        <Panel title="Performance" code="PRF-01">
-          {result ? (
-            <div className="space-y-3">
-              <PerformanceCards result={result} />
-              <UtilizationGauge result={result} />
-            </div>
-          ) : (
-            <p className="tabular py-4 text-center text-xs text-muted-2">
-              Metrics appear after a run.
-            </p>
-          )}
         </Panel>
       </div>
 
@@ -223,8 +239,8 @@ export function Visualizer({ lab }: VisualizerProps) {
           )}
         </Panel>
 
-        {/* ── CPU state + transport + log ──────────────────────── */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_minmax(0,1.15fr)]">
+        {/* ── CPU state + transport + log & performance ────────── */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_minmax(0,1.25fr)]">
           <div className="space-y-4">
             <CPUVisualizer
               frame={sim.frame}
@@ -275,36 +291,45 @@ export function Visualizer({ lab }: VisualizerProps) {
             )}
           </Panel>
 
-          <Panel title="System Log" code="LOG-01">
-            <SystemLog
-              log={result?.log ?? []}
-              upTo={sim.finished ? null : sim.currentTime}
-              maxHeight={320}
-            />
-          </Panel>
+          <div className="space-y-4">
+            <Panel title="System Log" code="LOG-01">
+              <SystemLog
+                log={result?.log ?? []}
+                upTo={sim.finished ? null : sim.currentTime}
+                maxHeight={260}
+              />
+            </Panel>
+
+            <Panel
+              title="Performance"
+              code="PRF-01"
+              note="Aggregate system throughput, waiting, turnaround, and per-process timings."
+              actions={
+                <button
+                  type="button"
+                  onClick={handleGeneratePerformance}
+                  disabled={!valid}
+                  className="flex items-center gap-1 border border-crt/70 bg-crt/10 px-2 py-0.5 text-xs font-bold text-crt transition-colors hover:bg-crt hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Zap aria-hidden="true" className="h-3 w-3" />
+                  Generate Performance
+                </button>
+              }
+            >
+              <PerformanceSection
+                result={performanceResult}
+                isStale={isPerformanceStale}
+                onGenerate={handleGeneratePerformance}
+                canGenerate={valid}
+                colors={colors}
+                showPriority={meta.usesPriority}
+                selectedProcess={selectedProcess}
+                onSelectProcess={setSelectedProcess}
+              />
+            </Panel>
+          </div>
         </div>
       </div>
-
-      {/* ── Per-process metrics ──────────────────────────────── */}
-      <Panel
-        title="Process Metrics"
-        code="MET-01"
-        note="Click any column header to sort. Click a row to highlight that process on the Gantt chart."
-      >
-        {result ? (
-          <MetricsTable
-            processes={result.processes}
-            colors={colors}
-            showPriority={meta.usesPriority}
-            selectedProcess={selectedProcess}
-            onSelectProcess={setSelectedProcess}
-          />
-        ) : (
-          <p className="tabular py-4 text-center text-xs text-muted-2">
-            Per-process completion, turnaround, waiting and response times appear after a run.
-          </p>
-        )}
-      </Panel>
     </div>
   );
 }
