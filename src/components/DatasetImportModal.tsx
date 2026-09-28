@@ -88,15 +88,13 @@ async function preprocessImageForOcr(file: File): Promise<Blob> {
             b = 255 - b;
           }
 
-          // Grayscale luminance
-          const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+          // Grayscale luminance with smooth antialiasing preserved
+          // Never apply harsh thresholding which damages the gap between adjacent digits like '11'
+          const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 
-          // High-contrast thresholding
-          const enhanced = gray > 180 ? 255 : gray < 85 ? 0 : gray;
-
-          data[i] = enhanced;
-          data[i + 1] = enhanced;
-          data[i + 2] = enhanced;
+          data[i] = gray;
+          data[i + 1] = gray;
+          data[i + 2] = gray;
         }
 
         ctx.putImageData(imageData, 0, 0);
@@ -213,6 +211,10 @@ export function DatasetImportModal({
             setOcrStatus(m.status);
           }
         },
+      });
+
+      await worker.setParameters({
+        preserve_interword_spaces: '1',
       });
 
       const ret = await worker.recognize(processedBlob);
