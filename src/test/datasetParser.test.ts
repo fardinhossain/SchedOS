@@ -183,6 +183,79 @@ P10 35 18 08
     expect(res.processes[7]).toEqual({ id: 'P8', arrivalTime: 29, burstTime: 7, priority: 1 });
   });
 
+  it('parses Complex Test Case 06 (12 processes) recovering 11 in burst time', () => {
+    const rawOcr = `
+Complex Test Case 06 — Preemption Stress Test
+This is the one | recommend using specifically to test SRTF and LRTF.
+PID Arrival Time Burst Time Priority ()
+P1 10 45 15
+P2 12 1" 04
+P3 15 38 12
+P4 18 07 02
+P5 21 29 09
+P6 24 13 01
+P7 27 41 17
+P8 30 06 03
+PO 33 22 08
+P10 36 16 05
+P11 39 34 06
+P12 42 09 10
+    `;
+    const res = parseDatasetText(rawOcr);
+    expect(res.success).toBe(true);
+    expect(res.processes).toHaveLength(12);
+    expect(res.processes[1]).toEqual({ id: 'P2', arrivalTime: 12, burstTime: 11, priority: 4 });
+    expect(res.processes[8]).toEqual({ id: 'P9', arrivalTime: 33, burstTime: 22, priority: 8 });
+  });
+
+  it('parses 20-process table recovering 11 in burst time and priority and ignoring non-table stray text', () => {
+    const rawOcr = `
+PID AT BT Priority (9
+P1 10 34 12
+p2 12 19 05
+P3 15 42 17
+P4 18 11 02
+P5 21 27 09
+P6 24 38 04
+p7 27 15 13
+P8 30 31 01
+P9 33 08 07
+P10 36 24 15
+P11 39 46 03
+P12 42 17 10
+P13 45 29 06
+P14 48 13 18
+P15 51 35 08
+P16 54 21 14
+P17 57 40 02
+P18 60 10 1
+P19 63 26 05
+NJ
+P20 66 18 16
+    `;
+    const res = parseDatasetText(rawOcr);
+    expect(res.success).toBe(true);
+    expect(res.processes).toHaveLength(20);
+    expect(res.processes[3]).toEqual({ id: 'P4', arrivalTime: 18, burstTime: 11, priority: 2 });
+    expect(res.processes[17]).toEqual({ id: 'P18', arrivalTime: 60, burstTime: 10, priority: 11 });
+    expect(res.processes[19]).toEqual({ id: 'P20', arrivalTime: 66, burstTime: 18, priority: 16 });
+  });
+
+  it('does NOT falsely change 1 to 11 when column has unpadded single digits', () => {
+    const unpadded = `
+PID AT BT Priority
+P1 0 5 1
+P2 1 3 2
+P3 2 8 1
+P4 3 4 3
+    `;
+    const res = parseDatasetText(unpadded);
+    expect(res.success).toBe(true);
+    expect(res.processes).toHaveLength(4);
+    expect(res.processes[0].priority).toBe(1);
+    expect(res.processes[2].priority).toBe(1);
+  });
+
   it('handles empty or invalid inputs gracefully', () => {
     const emptyRes = parseDatasetText('');
     expect(emptyRes.success).toBe(false);

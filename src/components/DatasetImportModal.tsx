@@ -108,7 +108,7 @@ async function preprocessImageForOcr(file: File): Promise<Blob> {
     img.onload = () => {
       URL.revokeObjectURL(url);
       try {
-        const scale = Math.max(2.0, Math.min(3.5, 2600 / Math.max(img.width, img.height)));
+        const scale = Math.max(2.5, Math.min(3.8, 2800 / Math.max(img.width, img.height)));
         const canvas = document.createElement('canvas');
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
@@ -148,7 +148,15 @@ async function preprocessImageForOcr(file: File): Promise<Blob> {
           }
 
           // Grayscale luminance
-          const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+          let gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+
+          // Suppress faint table borders & background noise (> 210 becomes clean white 255)
+          if (gray > 210) {
+            gray = 255;
+          } else {
+            // Contrast stretch text: [0, 210] -> [0, 255]
+            gray = Math.round((gray / 210) * 255);
+          }
 
           data[i] = gray;
           data[i + 1] = gray;

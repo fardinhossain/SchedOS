@@ -36,6 +36,15 @@ function cleanLine(raw: string): string {
     .trim();
 }
 
+interface ParsedProcessWithRaw extends ProcessInput {
+  _rawTokens?: {
+    id?: string;
+    at?: string;
+    bt?: string;
+    pri?: string;
+  };
+}
+
 /** Safely parses a token into a number, handling OCR edge cases (e.g. '1"' or 'n' for 11, 'O'/'o' for 0, stray brackets, letter confusion). */
 export function parseCleanNumber(token: string | undefined): number {
   if (token === undefined) return NaN;
@@ -45,7 +54,7 @@ export function parseCleanNumber(token: string | undefined): number {
   // Standalone OCR confusions
   if (/^[OoQq]$/.test(t)) return 0;
   if (/^[lI|!]$/.test(t)) return 1;
-  if (/^(?:1["'’]|["'’]1|ll|1l|l1|II|1I|\|\||n)$/i.test(t)) return 11;
+  if (/^(?:1["'’]|["'’]1|ll|1l|l1|II|1I|\|\||n|m|1m"|1n"|1m|1n|m1|n1)$/i.test(t)) return 11;
   if (/^["'’]{1,2}$/.test(t)) return 11;
   if (/^[\[(]3$/.test(t)) return 6; // OCR confusion where '6' becomes '[3' or '(3'
   if (/^[aA]$/.test(t)) return 4;
@@ -91,6 +100,10 @@ export function parseCleanNumber(token: string | undefined): number {
   if (/^(\d+)[oO]$/.test(t)) {
     return parseInt(t.slice(0, -1) + '0', 10);
   }
+  if (/^(\d+)(?:il|l|I|!)$/i.test(t)) {
+    const m = t.match(/^(\d+)(?:il|l|I|!)$/i);
+    if (m) return parseInt(m[1] + '1', 10);
+  }
 
   // Replace vertical-bar, pipe, lowercase l or uppercase I surrounded by digits with 1
   t = t
@@ -122,7 +135,7 @@ function cleanPid(rawId: string): string {
 /**
  * Attempts to parse a single line into a ProcessInput.
  */
-function parseLine(line: string, defaultIndex: number): ProcessInput | null {
+function parseLine(line: string, defaultIndex: number): ParsedProcessWithRaw | null {
   const trimmed = cleanLine(line);
   if (!trimmed || isHeaderLine(trimmed) || /^[-\s|=+]+$/.test(trimmed)) {
     return null;
@@ -143,6 +156,12 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
       arrivalTime: parseInt(kvAtMatch[1], 10),
       burstTime: Math.max(1, parseInt(kvBtMatch[1], 10)),
       ...(pri !== undefined && !isNaN(pri) ? { priority: pri } : {}),
+      _rawTokens: {
+        id: kvIdMatch ? kvIdMatch[1] : undefined,
+        at: kvAtMatch[1],
+        bt: kvBtMatch[1],
+        pri: kvPriMatch ? kvPriMatch[1] : undefined,
+      },
     };
   }
 
@@ -161,6 +180,12 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
       arrivalTime: parseInt(nlAtMatch[1], 10),
       burstTime: Math.max(1, parseInt(nlBtMatch[1], 10)),
       ...(pri !== undefined && !isNaN(pri) ? { priority: pri } : {}),
+      _rawTokens: {
+        id: nlIdMatch ? nlIdMatch[1] : undefined,
+        at: nlAtMatch[1],
+        bt: nlBtMatch[1],
+        pri: nlPriMatch ? nlPriMatch[1] : undefined,
+      },
     };
   }
 
@@ -189,6 +214,12 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
           arrivalTime: Math.max(0, at),
           burstTime: Math.max(1, bt),
           ...(pri !== undefined && !isNaN(pri) ? { priority: pri } : {}),
+          _rawTokens: {
+            id: tokens[0],
+            at: tokens[1],
+            bt: tokens[2],
+            pri: tokens[3],
+          },
         };
       }
     } else {
@@ -213,6 +244,12 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
           arrivalTime: Math.max(0, num1),
           burstTime: Math.max(1, num2),
           priority: num3,
+          _rawTokens: {
+            id: tokens[0],
+            at: tokens[1],
+            bt: tokens[2],
+            pri: tokens[3],
+          },
         };
       }
 
@@ -224,6 +261,11 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
             id: `P${num0}`,
             arrivalTime: Math.max(0, num1),
             burstTime: Math.max(1, num2),
+            _rawTokens: {
+              id: tokens[0],
+              at: tokens[1],
+              bt: tokens[2],
+            },
           };
         }
         return {
@@ -231,6 +273,11 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
           arrivalTime: Math.max(0, num0),
           burstTime: Math.max(1, num1),
           priority: num2,
+          _rawTokens: {
+            at: tokens[0],
+            bt: tokens[1],
+            pri: tokens[2],
+          },
         };
       }
 
@@ -240,6 +287,10 @@ function parseLine(line: string, defaultIndex: number): ProcessInput | null {
           id: `P${defaultIndex}`,
           arrivalTime: Math.max(0, num0),
           burstTime: Math.max(1, num1),
+          _rawTokens: {
+            at: tokens[0],
+            bt: tokens[1],
+          },
         };
       }
     }
@@ -291,6 +342,47 @@ export function reconcileProcessSequence(processes: ProcessInput[]): ProcessInpu
 }
 
 /**
+ * Reconciles columns where OCR truncated '11' into '1' in tables that use leading zeros (e.g. 01..09)
+ * or are predominantly two-digit numbers (>= 10).
+ */
+export function reconcileColumnDoubleNumbers(processes: ParsedProcessWithRaw[]): ProcessInput[] {
+  if (processes.length < 3) {
+    return processes.map(({ _rawTokens, ...rest }) => rest);
+  }
+
+  const checkColumn = (colName: 'arrivalTime' | 'burstTime' | 'priority', rawKey: 'at' | 'bt' | 'pri') => {
+    const rawTokens = processes.map((p) => (p._rawTokens ? p._rawTokens[rawKey] : undefined)).filter(Boolean) as string[];
+    const values = processes.map((p) => p[colName]).filter((v): v is number => v !== undefined);
+
+    if (values.length < 3) return;
+
+    // Check if column uses leading zero padding (e.g. '01', '02', '07', etc.)
+    const hasLeadingZeros = rawTokens.some((t) => /^0[1-9]/.test(t.trim()));
+    // Check if column is predominantly >= 10
+    const ratioGe10 = values.filter((v) => v >= 10).length / values.length;
+
+    if (hasLeadingZeros || ratioGe10 >= 0.6) {
+      for (const p of processes) {
+        if (p[colName] === 1) {
+          const raw = p._rawTokens ? p._rawTokens[rawKey] : '';
+          // If raw token did NOT have a leading zero (e.g. was '1', '1"', '1m', 'n', etc. NOT '01')
+          if (!/^0+[1-9]/.test(raw ? raw.trim() : '')) {
+            p[colName] = 11;
+          }
+        }
+      }
+    }
+  };
+
+  checkColumn('arrivalTime', 'at');
+  checkColumn('burstTime', 'bt');
+  checkColumn('priority', 'pri');
+
+  // Strip internal _rawTokens before returning
+  return processes.map(({ _rawTokens, ...rest }) => rest);
+}
+
+/**
  * Parses multi-line scheduling dataset text into ProcessInput[].
  */
 export function parseDatasetText(text: string): ParseResult {
@@ -307,7 +399,7 @@ export function parseDatasetText(text: string): ParseResult {
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 
-  const processes: ProcessInput[] = [];
+  const processes: ParsedProcessWithRaw[] = [];
   const warnings: string[] = [];
 
   let processIndex = 1;
@@ -337,12 +429,14 @@ export function parseDatasetText(text: string): ParseResult {
     };
   }
 
-  // Reconcile and recover sequence numbers (e.g. P1..P7, [corrupted/P22], P9 -> P8)
-  const reconciled = reconcileProcessSequence(processes);
+  // 1. Reconcile and recover sequence numbers (e.g. P1..P7, [corrupted/P22], P9 -> P8)
+  const sequenceReconciled = reconcileProcessSequence(processes);
+  // 2. Reconcile column double numbers (e.g. '1' -> 11 when padded or predominantly >= 10)
+  const columnReconciled = reconcileColumnDoubleNumbers(sequenceReconciled as ParsedProcessWithRaw[]);
 
   // Ensure unique process IDs
   const seenIds = new Set<string>();
-  const deduplicatedProcesses = reconciled.map((p, idx) => {
+  const deduplicatedProcesses = columnReconciled.map((p, idx) => {
     let finalId = p.id;
     if (seenIds.has(finalId)) {
       finalId = `${p.id}_${idx + 1}`;
