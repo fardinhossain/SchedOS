@@ -32,7 +32,7 @@ export function CPUVisualizer({
   const status = finished ? 'HALTED' : running ? 'RUNNING' : 'IDLE';
   const StatusIcon = finished ? CheckCircle2 : running ? Cpu : PauseCircle;
 
-  const color = running ? (colors[running] ?? '#A7A49B') : null;
+  const color = running ? (colors[running] ?? '#b89427ff') : null;
 
   return (
     <div className="scanlines relative border border-ink bg-ink p-3">
